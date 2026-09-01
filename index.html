@@ -43,6 +43,33 @@
   #autoBtn { flex:0 0 auto; border:none; border-radius:16px; padding:9px 12px; font-size:18px; font-family:inherit;
     background:linear-gradient(180deg,#b39ddb,#9575cd); color:#fff; box-shadow:0 3px 0 #6a4fa3; }
   #autoBtn.on { background:linear-gradient(180deg,#aed581,#7cb342); box-shadow:0 3px 0 #558b2f; }
+  /* Spell-Leiste über Prestige */
+  #spellBar { position:fixed; left:8px; right:8px; bottom:calc(170px + env(safe-area-inset-bottom,0)); z-index:9;
+    display:flex; gap:8px; justify-content:center; }
+  .spellBtn { position:relative; width:64px; height:58px; border:none; border-radius:16px; font-size:26px; font-family:inherit;
+    background:linear-gradient(180deg,#fff,#f0e7ff); border:2px solid #d6c6ff; box-shadow:0 3px 0 #b39ddb;
+    pointer-events:auto; }
+  .spellBtn:active { transform:translateY(2px); box-shadow:none; }
+  .spellBtn.cd { filter:grayscale(.9); opacity:.6; box-shadow:none; }
+  .spellBtn .cd { position:absolute; bottom:2px; left:0; right:0; font-size:10px; font-weight:bold; color:#6a4fa3; }
+  .spellBtn .buff { position:absolute; top:-6px; right:-4px; font-size:13px; animation:pulse .8s infinite alternate; }
+  @keyframes pulse { from { transform:scale(1);} to { transform:scale(1.25);} }
+  /* Toasts */
+  #toasts { position:fixed; top:calc(env(safe-area-inset-top,0) + 92px); right:10px; z-index:25; display:flex;
+    flex-direction:column; gap:6px; pointer-events:none; }
+  .toast { background:rgba(255,255,255,.95); border:2px solid #ffd54f; color:#6b5a9e; font-size:13px; font-weight:bold;
+    border-radius:14px; padding:8px 14px; box-shadow:0 4px 14px rgba(60,30,120,.25); animation:toastIn .3s ease-out;
+    max-width:250px; }
+  @keyframes toastIn { from { transform:translateX(40px); opacity:0;} to { transform:none; opacity:1;} }
+  .toast.fade { transition:opacity .5s; opacity:0; }
+  /* Achievements Modal */
+  #achList { max-height:320px; overflow-y:auto; text-align:left; margin-bottom:10px; }
+  .achItem { display:flex; align-items:center; gap:10px; padding:7px 6px; border-bottom:1px solid #f0eaff; }
+  .achItem .ic { font-size:24px; }
+  .achItem .nm { font-weight:bold; color:#5b3fa8; font-size:14px; }
+  .achItem .ds { font-size:11px; color:#8a7bb8; }
+  .achItem .rw { margin-left:auto; font-size:12px; color:#f5a623; font-weight:bold; white-space:nowrap; }
+  .achItem.locked { opacity:.45; filter:grayscale(.8); }
   /* Modals */
   .modal { position:fixed; inset:0; z-index:20; background:rgba(80,50,140,.45); display:flex;
     align-items:center; justify-content:center; padding:20px; }
@@ -70,8 +97,11 @@
   <div id="starsRow">⭐ 0</div>
 </div>
 
+<div id="spellBar"></div>
+
 <div id="prestigeBar">
   <button id="prestigeBtn">⭐ Prestige</button>
+  <button id="achBtn">🏆</button>
   <button id="autoBtn">🤖</button>
 </div>
 
@@ -107,6 +137,12 @@
     <button id="autoUnlock" class="gold">🔓 Für 3 ⭐ kaufen</button>
   </div>
   <button id="autoClose">Schließen</button>
+</div></div>
+
+<div id="achModal" class="modal hidden"><div class="box">
+  <h2>🏆 Erfolge</h2>
+  <div id="achList"></div>
+  <button id="achClose">Schließen</button>
 </div></div>
 
 <div id="updateBanner">🔄 Update verfügbar <span>Neu laden</span></div>
@@ -169,7 +205,7 @@
   // Turm-Geometrie (relative Einheiten)
   function towerGeom() {
     var tw = Math.min(W * 0.62, 300);
-    var baseY = H - 150; // über dem Shop
+    var baseY = H - 240; // über der Spell-Leiste (kein Overlap mit UI)
     return { x: W / 2, w: tw, base: baseY, floors: 5, fh: 62 };
   }
 
@@ -313,15 +349,86 @@
 
   function popOrb(x, y) { for (var i = 0; i < 5; i++) spawnOrb(x + (Math.random() - 0.5) * 60, y + (Math.random() - 0.5) * 30); }
 
-  // ---------- Tap auf Spielfeld = Mana ----------
+  // ---------- Tap auf Spielfeld = Mana (mit Crits) ----------
   var lastTapT = 0;
   canvas.addEventListener('pointerdown', function (e) {
-    var gain = G.tapMana(state);
+    var res = G.tapMana(state);
     spawnOrb(e.clientX, e.clientY);
     spawnOrb(e.clientX + 10, e.clientY + 6);
+    if (res.crit) {
+      showToast('💥 KRIT! +' + G.fmt(res.gain) + ' ✨', '#ff8a65');
+      for (var i = 0; i < 8; i++) spawnOrb(e.clientX + (Math.random() - 0.5) * 80, e.clientY + (Math.random() - 0.5) * 40);
+    }
     lastTapT = performance.now();
     updateUI();
   });
+
+  // ---------- Toasts ----------
+  var toastWrap = document.getElementById('toasts') || (function () {
+    var d = document.createElement('div'); d.id = 'toasts'; document.body.appendChild(d); return d;
+  })();
+  function showToast(txt, color) {
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = txt;
+    if (color) t.style.borderColor = color;
+    toastWrap.appendChild(t);
+    setTimeout(function () { t.classList.add('fade'); }, 2600);
+    setTimeout(function () { t.remove(); }, 3200);
+  }
+
+  // ---------- Zaubersprüche ----------
+  var spellBar = document.getElementById('spellBar');
+  var spellBtns = {};
+  G.SPELLS.forEach(function (sp) {
+    var b = document.createElement('button');
+    b.className = 'spellBtn';
+    b.innerHTML = sp.emoji + '<span class="cd" style="display:none"></span><span class="buff" style="display:none">✨</span>';
+    b.title = sp.name + ' — ' + sp.desc;
+    b.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      var r = G.castSpell(state, sp.id);
+      if (!r) return;
+      if (sp.id === 'blitz') showToast('⚡ +' + G.fmt(r.gain) + ' ✨');
+      if (sp.id === 'fokus') showToast('🔮 Tap-Kraft ×3 für 30s');
+      if (sp.id === 'strom') showToast('🌪️ Produktion ×2 für 60s');
+      for (var i = 0; i < 6; i++) spawnOrb(innerWidth / 2 + (Math.random() - 0.5) * 120, innerHeight / 2);
+      saveGame();
+      updateUI();
+    });
+    spellBar.appendChild(b);
+    spellBtns[sp.id] = b;
+  });
+  function fmtCd(sec) {
+    sec = Math.ceil(sec);
+    if (sec >= 60) return Math.floor(sec / 60) + 'm' + (sec % 60 ? (sec % 60) + 's' : '');
+    return sec + 's';
+  }
+
+  // ---------- Achievements ----------
+  var achModal = document.getElementById('achModal');
+  document.getElementById('achBtn').addEventListener('click', function () { refreshAchList(); achModal.classList.remove('hidden'); });
+  document.getElementById('achClose').addEventListener('click', function () { achModal.classList.add('hidden'); saveGame(); });
+  function refreshAchList() {
+    var el = document.getElementById('achList');
+    el.innerHTML = '';
+    G.ACHIEVEMENTS.forEach(function (a) {
+      var has = (state.achievements || []).indexOf(a.id) >= 0;
+      var d = document.createElement('div');
+      d.className = 'achItem' + (has ? '' : ' locked');
+      d.innerHTML = '<span class="ic">' + (has ? a.icon : '❓') + '</span>' +
+        '<span><div class="nm">' + (has ? a.name : '???') + '</div><div class="ds">' + a.desc + '</div></span>' +
+        '<span class="rw">+' + G.fmt(a.reward) + ' ✨</span>';
+      el.appendChild(d);
+    });
+  }
+  function popAchievements() {
+    var got = G.checkAchievements(state);
+    got.forEach(function (a) {
+      showToast(a.icon + ' Erfolg: ' + a.name + ' (+' + G.fmt(a.reward) + ' ✨)', '#aed581');
+    });
+    if (got.length) saveGame();
+  }
 
   // ---------- Prestige ----------
   var prestigeBtn = document.getElementById('prestigeBtn');
@@ -363,12 +470,29 @@
   // ---------- HUD / Update ----------
   function updateUI() {
     document.getElementById('manaBig').textContent = '✨ ' + G.fmt(state.mana);
-    document.getElementById('mpsRow').textContent = '⚡ ' + G.fmt(G.mps(state)) + '/s';
-    document.getElementById('starsRow').textContent = '⭐ ' + state.stars;
+    var buffTxt = '';
+    if (G.spellBuffMult(state) > 1) buffTxt = ' 🌪️×2';
+    document.getElementById('mpsRow').textContent = '⚡ ' + G.fmt(G.mps(state)) + '/s' + buffTxt;
+    document.getElementById('starsRow').textContent = '⭐ ' + state.stars + ' · 🏆 ' + ((state.achievements || []).length) + '/' + G.ACHIEVEMENTS.length;
     var pend = G.pendingStars(state);
     prestigeBtn.textContent = pend > 0 ? '⭐ Prestige (+' + pend + ')' : '⭐ Prestige';
     prestigeBtn.disabled = pend < 1;
     autoBtn.classList.toggle('on', state.autoUnlocked && state.autoOn);
+    // Spells
+    G.SPELLS.forEach(function (sp) {
+      var st = state.spells[sp.id] || {};
+      var b = spellBtns[sp.id];
+      var cdEl = b.querySelector('.cd'), buffEl = b.querySelector('.buff');
+      if (st.cd > 0) {
+        b.classList.add('cd');
+        cdEl.style.display = 'block';
+        cdEl.textContent = fmtCd(st.cd);
+      } else {
+        b.classList.remove('cd');
+        cdEl.style.display = 'none';
+      }
+      buffEl.style.display = (st.buff > 0) ? 'block' : 'none';
+    });
     // Cards
     document.getElementById('tapCost').textContent = '✨ ' + G.fmt(G.tapCost(state));
     document.getElementById('tapPow').textContent = '+' + G.fmt(G.tapPower(state) * G.starMult(state)) + ' pro Tap';
@@ -391,6 +515,7 @@
     G.tick(state, dt);
     saveTimer += dt;
     if (saveTimer > 2) { saveTimer = 0; saveGame(); }
+    popAchievements();
     updateUI();
     draw(now / 1000);
     requestAnimationFrame(loop);
@@ -402,6 +527,10 @@
   window.addEventListener('beforeunload', saveGame);
 
   // ---------- Update-Banner (Auto-Update von GitHub) ----------
+  // BUGFIX: Version wird NUR mit dem Release-Tag verglichen (vX.Y.Z → X.Y.Z).
+  // Vorher wurde zusätzlich der main-Branch-SHA gepollt — bei jedem neuen Commit
+  // (auch ohne Release) erschien der Banner und blieb nach Reload wegen der
+  // lastSeenSha-Logik direkt wieder da.
   var REPO = 'Ninjalama1337/magie-turm';
   var banner = document.getElementById('updateBanner');
   function checkUpdate() {
@@ -409,20 +538,13 @@
     fetch('https://api.github.com/repos/' + REPO + '/releases/latest', { cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        if (j && j.tag_name && j.tag_name !== G.APP_VERSION) banner.style.display = 'flex';
-      }).catch(function () {});
-    fetch('https://api.github.com/repos/' + REPO + '/commits/main', { cache: 'no-store' })
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        var sha = j && j.sha ? j.sha.slice(0, 7) : null;
-        if (!sha) return;
-        var seen = localStorage.getItem('lastSeenSha');
-        if (seen && seen !== sha) banner.style.display = 'flex';
-        else if (!seen) localStorage.setItem('lastSeenSha', sha);
+        if (!j || !j.tag_name) return;
+        var rel = j.tag_name.replace(/^v/, '');
+        if (rel !== G.APP_VERSION) banner.style.display = 'flex';
+        else banner.style.display = 'none';
       }).catch(function () {});
   }
   banner.addEventListener('click', function () {
-    localStorage.setItem('lastSeenSha', '');
     if (window.caches) caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); })
       .finally(function () { location.reload(true); });
     else location.reload(true);

@@ -16,15 +16,15 @@ ok(s.mana === 0, 'Tick ohne Wizards: kein Mana');
 
 console.log('--- Tap ---');
 s = core.newState();
-let g = core.tapMana(s);
-ok(g === 1, 'Tap: +1 Mana');
+let g = core.tapMana(s, function () { return 0.5; });
+ok(g.gain === 1, 'Tap: +1 Mana');
 ok(s.mana === 1 && s.totalMana === 1 && s.runMana === 1, 'Tap: Mana in allen Zählern');
 ok(core.buyTap(s) === false, 'Tap-Upgrade ohne Mana abgelehnt');
 s.mana = 25;
 ok(core.buyTap(s), 'Tap-Upgrade gekauft (25)');
 ok(s.tapLvl === 1, 'Tap-Upgrade Level 1');
-g = core.tapMana(s);
-ok(g === 2, 'Tap nach Upgrade: +2');
+g = core.tapMana(s, function () { return 0.5; });
+ok(g.gain === 2, 'Tap nach Upgrade: +2');
 ok(core.tapCost(s) === Math.ceil(25 * 2.2), 'Nächste Stufe: 25*2.2 aufgerundet');
 
 console.log('--- Wizard kaufen ---');
@@ -79,7 +79,7 @@ s.stars = 4;
 ok(Math.abs(core.mps(s) - 6) < 1e-9, '4 Sterne (+20%): mps=6');
 ok(Math.abs(core.starMult(s) - 1.2) < 1e-9, 'starMult=1.2');
 g = core.tapMana(s);
-ok(Math.abs(g - 1.2) < 1e-9, 'Tap mit Stern-Bonus: 1.2');
+ok(Math.abs(g.gain - 1.2) < 1e-9, 'Tap mit Stern-Bonus: 1.2');
 
 console.log('--- Auto-Prestige ---');
 s = core.newState();
@@ -139,6 +139,73 @@ s.lastSeen = now;
 const m1 = s.mana;
 core.applyOffline(s, now);
 ok(s.mana === m1, 'Gerade erst gesehen: kein Offline-Sprung');
+
+console.log('--- Crit-Taps ---');
+s = core.newState();
+let rng = function () { return 0.05; }; // immer Crit (< 0.10)
+let r1 = core.tapMana(s, rng);
+ok(r1.crit === true && r1.gain === 10, 'Crit: ×10 (gain=10)');
+ok(s.critCount === 1, 'critCount gezählt');
+rng = function () { return 0.5; }; // nie Crit
+let r3 = core.tapMana(s, rng);
+ok(r3.crit === false && r3.gain === 1, 'Kein Crit: normal');
+ok(s.critCount === 1, 'critCount unverändert');
+
+console.log('--- Zaubersprüche ---');
+s = core.newState();
+ok(core.castSpell(s, 'blitz') !== null, 'Mana-Blitz casten');
+ok(s.mana === 30, 'Blitz Mindest-Ertrag 30 bei 0 mps (ist: ' + s.mana + ')');
+ok(core.castSpell(s, 'blitz') === null, 'Blitz in Cooldown: abgelehnt');
+ok(core.spellReady(s, 'blitz') === false, 'spellReady false im Cooldown');
+core.tickSpells(s, 299);
+ok(core.spellReady(s, 'blitz') === false, 'Nach 299s: noch 1s Cooldown');
+core.tickSpells(s, 1);
+ok(core.spellReady(s, 'blitz') === true, 'Nach 300s: bereit');
+s.wiz.azubi = 10; // 5 mps raw
+s.spells.blitz.cd = 0;
+const rb = core.castSpell(s, 'blitz');
+ok(rb.gain === 5 * 3600, 'Blitz: 1h Produktion = 18000 (ist: ' + rb.gain + ')');
+ok(core.castSpell(s, 'unsinn') === null, 'Unbekannter Spell: null');
+// Fokus-Buff
+s.spells.fokus = { cd: 0 };
+const rf = core.castSpell(s, 'fokus');
+ok(rf !== null, 'Fokus gecastet');
+ok(core.tapPower(s) === 3, 'Tap-Power ×3 im Fokus-Buff');
+core.tickSpells(s, 30);
+ok(core.tapPower(s) === 1, 'Fokus-Buff nach 30s abgelaufen');
+// Sturm-Buff
+s.spells.strom = { cd: 0 };
+core.castSpell(s, 'strom');
+ok(Math.abs(core.mps(s) - 10) < 1e-9, 'Magiesturm: mps ×2 (5→10)');
+core.tickSpells(s, 60);
+ok(Math.abs(core.mps(s) - 5) < 1e-9, 'Sturm-Buff nach 60s abgelaufen');
+ok(s.spellsCast === 4, 'spellsCast gezählt (4)');
+
+console.log('--- Erfolge ---');
+s = core.newState();
+s.totalMana = 1; // "einmal getippt"
+let got = core.checkAchievements(s);
+ok(got.length === 1 && got[0].id === 'tap1', 'tap1 schaltet frei');
+ok(s.achievements.indexOf('tap1') >= 0, 'tap1 vermerkt');
+let got2 = core.checkAchievements(s);
+ok(got2.length === 0, 'keine Doppelten');
+ok(s.mana >= 10, 'Belohnung +10 gutgeschrieben');
+s = core.newState();
+s.wiz.drache = 1;
+let gotDr = core.checkAchievements(s);
+ok(gotDr.some(a => a.id === 'drache'), 'Drachen-Erfolg schaltet frei');
+ok(gotDr.some(a => a.id === 'w1'), 'Zauberer-Erfolg schaltet mit frei');
+const drAch = core.ACHIEVEMENTS.find(a => a.id === 'drache');
+ok(s.mana >= drAch.reward, 'Drachen-Belohnung 5000 gezahlt');
+
+console.log('--- Save/Load mit neuen Feldern ---');
+s = core.newState();
+s.spells = { blitz: { cd: 123 }, strom: { cd: 0, buff: 42 } };
+s.spellsCast = 7; s.critCount = 3; s.achievements = ['tap1', 'w1'];
+const l2 = core.deserialize(core.serialize(s));
+ok(l2.spells.blitz.cd === 123 && l2.spells.strom.buff === 42, 'Spells erhalten');
+ok(l2.spellsCast === 7 && l2.critCount === 3, 'Zähler erhalten');
+ok(l2.achievements.length === 2, 'Achievements erhalten');
 
 console.log('--- Format ---');
 ok(core.fmt(999.96) === '999,9' || core.fmt(999.96) === '1000', 'fmt <1000: Komma');

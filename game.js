@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
 
-  var APP_VERSION = '1.0.0';
+  var APP_VERSION = '1.1.0';
 
   var WIZARDS = [
     { id: 'azubi',    emoji: '🧒', name: 'Azubi',       baseCost: 15,     mps: 0.5 },
@@ -22,6 +22,35 @@
   var OFFLINE_RATE = 0.5;         // 50% offline-Ertrag
   var SAVE_KEY = 'magieTurmSave_v1';
 
+  var CRIT_CHANCE = 0.10; // 10% kritische Taps
+  var CRIT_MULT = 10;
+
+  var SPELLS = [
+    { id: 'blitz', emoji: '⚡', name: 'Mana-Blitz', cd: 300, dur: 0, desc: 'Sofort +1h Produktion' },
+    { id: 'fokus', emoji: '🔮', name: 'Fokus',      cd: 180, dur: 30, desc: '×3 Tap-Kraft, 30s' },
+    { id: 'strom', emoji: '🌪️', name: 'Magiesturm', cd: 480, dur: 60, desc: '×2 Produktion, 60s' }
+  ];
+
+  function totalWiz(s) {
+    var n = 0;
+    WIZARDS.forEach(function (w) { n += (s.wiz[w.id] || 0); });
+    return n;
+  }
+
+  var ACHIEVEMENTS = [
+    { id: 'tap1',    icon: '👆', name: 'Erster Tipp',      desc: 'Tippe zum ersten Mal',      cond: function (s) { return s.totalMana >= 1; },     reward: 10 },
+    { id: 'mana1k',  icon: '✨', name: '1.000 Mana',       desc: 'Sammle 1.000 Mana',         cond: function (s) { return s.totalMana >= 1e3; },   reward: 50 },
+    { id: 'mana1m',  icon: '🌟', name: '1 Million Mana',   desc: 'Sammle 1.000.000 Mana',     cond: function (s) { return s.totalMana >= 1e6; },   reward: 2000 },
+    { id: 'w1',      icon: '🧒', name: 'Erster Zauberer',  desc: 'Stelle 1 Zauberer ein',     cond: function (s) { return totalWiz(s) >= 1; },     reward: 25 },
+    { id: 'w10',     icon: '🏫', name: 'Zauberakademie',   desc: '10 Zauberer gleichzeitig',  cond: function (s) { return totalWiz(s) >= 10; },    reward: 200 },
+    { id: 'drache',  icon: '🐉', name: 'Drachenreiter',    desc: 'Beschwöre einen Drachen',   cond: function (s) { return (s.wiz.drache || 0) >= 1; }, reward: 5000 },
+    { id: 'prest1',  icon: '⭐', name: 'Neuanfang',        desc: 'Prestige zum ersten Mal',   cond: function (s) { return s.stars >= 1; },         reward: 100 },
+    { id: 'stars10', icon: '🌠', name: 'Sternenhimmel',    desc: 'Sammle 10 Sterne',          cond: function (s) { return s.stars >= 10; },        reward: 1000 },
+    { id: 'stars25', icon: '💫', name: 'Sternenmeister',   desc: 'Sammle 25 Sterne',          cond: function (s) { return s.stars >= 25; },        reward: 5000 },
+    { id: 'auto',    icon: '🤖', name: 'Automatisierung',  desc: 'Schalte Auto-Prestige frei', cond: function (s) { return s.autoUnlocked; },      reward: 500 },
+    { id: 'spell1',  icon: '🪄', name: 'Erster Zauber',    desc: 'Wirke einen Zauberspruch',  cond: function (s) { return (s.spellsCast || 0) >= 1; }, reward: 100 }
+  ];
+
   function newState() {
     return {
       mana: 0,
@@ -33,6 +62,10 @@
       autoUnlocked: false,
       autoOn: false,
       autoThreshold: 1,
+      spells: {},           // cd-Restzeit + aktiver Buff: {blitz:{cd:0}, fokus:{cd:0,buff:0}, ...}
+      spellsCast: 0,
+      critCount: 0,
+      achievements: [],     // gecachte Liste freigeschalteter IDs (recomputed, aber gespeichert für Toasts)
       lastSeen: Date.now()
     };
   }
@@ -52,7 +85,10 @@
   }
 
   function tapPower(s) {
-    return 1 + s.tapLvl;
+    var base = 1 + s.tapLvl;
+    var fk = s.spells && s.spells.fokus;
+    if (fk && fk.buff > 0) base *= 3;
+    return base;
   }
 
   function starMult(s) {
@@ -65,8 +101,13 @@
     return sum;
   }
 
+  function spellBuffMult(s) {
+    var st = s.spells && s.spells.strom;
+    return (st && st.buff > 0) ? 2 : 1;
+  }
+
   function mps(s) {
-    return rawMps(s) * starMult(s);
+    return rawMps(s) * starMult(s) * spellBuffMult(s);
   }
 
   function pendingStars(s) {
@@ -88,12 +129,15 @@
 
   // --- Aktionen (mutieren State, geben bei Erfolg true zurück) ---
 
-  function tapMana(s) {
+  // Ergebnis: { gain, crit }
+  function tapMana(s, rng) {
+    var crit = (rng || Math.random)() < CRIT_CHANCE;
     var gain = tapPower(s) * starMult(s);
+    if (crit) { gain *= CRIT_MULT; s.critCount = (s.critCount || 0) + 1; }
     s.mana += gain;
     s.totalMana += gain;
     s.runMana += gain;
-    return gain;
+    return { gain: gain, crit: crit };
   }
 
   function buyWizard(s, wid) {
@@ -151,8 +195,64 @@
     return 0;
   }
 
+  // --- Zaubersprüche ---
+  function findSpell(s, sid) {
+    for (var i = 0; i < SPELLS.length; i++) if (SPELLS[i].id === sid) return SPELLS[i];
+    return null;
+  }
+
+  function spellReady(s, sid) {
+    var st = s.spells[sid];
+    return !st || (st.cd || 0) <= 0;
+  }
+
+  function castSpell(s, sid) {
+    var sp = findSpell(s, sid);
+    if (!sp || !spellReady(s, sid)) return null;
+    s.spells[sid] = s.spells[sid] || {};
+    s.spells[sid].cd = sp.cd;
+    if (sp.dur > 0) s.spells[sid].buff = sp.dur;
+    s.spellsCast = (s.spellsCast || 0) + 1;
+    var gain = 0;
+    if (sid === 'blitz') {
+      gain = rawMps(s) * starMult(s) * 3600; // 1h Produktion sofort
+      if (gain < 30) gain = 30; // Mindest-Ertrag am Anfang
+      s.mana += gain;
+      s.totalMana += gain;
+      s.runMana += gain;
+    }
+    return { spell: sp, gain: gain };
+  }
+
+  // Cooldowns & Buffs ablaufen lassen
+  function tickSpells(s, dt) {
+    SPELLS.forEach(function (sp) {
+      var st = s.spells[sp.id];
+      if (!st) return;
+      if (st.cd > 0) st.cd = Math.max(0, st.cd - dt);
+      if (st.buff > 0) st.buff = Math.max(0, st.buff - dt);
+    });
+  }
+
+  // --- Erfolge: gibt Liste neu geschalteter Achievements zurück ---
+  function checkAchievements(s) {
+    var got = [];
+    ACHIEVEMENTS.forEach(function (a) {
+      if ((s.achievements || []).indexOf(a.id) >= 0) return;
+      if (a.cond(s)) {
+        if (!s.achievements) s.achievements = [];
+        s.achievements.push(a.id);
+        s.mana += a.reward;
+        s.totalMana += a.reward;
+        got.push(a);
+      }
+    });
+    return got;
+  }
+
   function tick(s, dt) {
     if (dt <= 0) return 0;
+    tickSpells(s, dt);
     var gain = mps(s) * dt;
     s.mana += gain;
     s.totalMana += gain;
@@ -192,6 +292,10 @@
       s.autoUnlocked = !!o.autoUnlocked;
       s.autoOn = !!o.autoOn;
       if (typeof o.autoThreshold === 'number') s.autoThreshold = o.autoThreshold;
+      if (o.spells && typeof o.spells === 'object') s.spells = o.spells;
+      if (typeof o.spellsCast === 'number') s.spellsCast = o.spellsCast;
+      if (typeof o.critCount === 'number') s.critCount = o.critCount;
+      if (Array.isArray(o.achievements)) s.achievements = o.achievements;
       if (typeof o.lastSeen === 'number') s.lastSeen = o.lastSeen;
       return s;
     } catch (e) { return newState(); }
@@ -200,6 +304,10 @@
   var api = {
     APP_VERSION: APP_VERSION,
     WIZARDS: WIZARDS,
+    SPELLS: SPELLS,
+    ACHIEVEMENTS: ACHIEVEMENTS,
+    CRIT_CHANCE: CRIT_CHANCE,
+    CRIT_MULT: CRIT_MULT,
     TAP_BASE_COST: TAP_BASE_COST,
     TAP_COST_MUL: TAP_COST_MUL,
     AUTO_UNLOCK_COST: AUTO_UNLOCK_COST,
@@ -212,6 +320,12 @@
     tapPower: tapPower,
     starMult: starMult,
     rawMps: rawMps,
+    spellBuffMult: spellBuffMult,
+    findSpell: findSpell,
+    spellReady: spellReady,
+    castSpell: castSpell,
+    tickSpells: tickSpells,
+    checkAchievements: checkAchievements,
     mps: mps,
     pendingStars: pendingStars,
     canPrestige: canPrestige,
