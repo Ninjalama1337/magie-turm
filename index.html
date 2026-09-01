@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Magie-Turm</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
+  html,body { width:100%; height:100%; overflow:hidden; touch-action:none; overscroll-behavior:none;
+    font-family:'Comic Sans MS','Segoe UI',sans-serif; background:linear-gradient(180deg,#c9b6f7 0%,#e8d9ff 45%,#ffe9f3 100%); }
+  canvas { position:fixed; inset:0; display:block; }
+  /* HUD */
+  #hud { position:fixed; top:env(safe-area-inset-top,0); left:0; right:0; padding:10px 14px 6px; pointer-events:none; z-index:10;
+    display:flex; flex-direction:column; align-items:center; gap:2px; }
+  #manaBig { font-size:30px; font-weight:bold; color:#5b3fa8; text-shadow:0 2px 0 #fff, 0 3px 6px rgba(90,60,170,.25); }
+  #mpsRow { font-size:14px; color:#8a6fd0; background:rgba(255,255,255,.55); padding:2px 12px; border-radius:12px; }
+  #starsRow { font-size:15px; color:#c99700; background:rgba(255,255,255,.55); padding:2px 12px; border-radius:12px; margin-top:2px; }
+  /* Wizard-Leiste unten */
+  #shop { position:fixed; bottom:env(safe-area-inset-bottom,0); left:0; right:0; z-index:10;
+    background:rgba(255,255,255,.72); backdrop-filter:blur(8px); border-radius:20px 20px 0 0;
+    padding:8px 6px calc(10px + env(safe-area-inset-bottom,0)); display:flex; gap:6px; overflow-x:auto;
+    box-shadow:0 -4px 18px rgba(90,60,170,.18); }
+  .card { flex:0 0 auto; width:96px; border-radius:14px; padding:7px 4px 6px; text-align:center;
+    background:linear-gradient(180deg,#ffffff,#f3ecff); border:2px solid #e2d4ff; position:relative; transition:transform .08s; }
+  .card:active { transform:scale(.94); }
+  .card.afford { border-color:#7bc47f; box-shadow:0 0 0 3px rgba(123,196,127,.25); }
+  .card .em { font-size:30px; line-height:1.1; }
+  .card .nm { font-size:11px; color:#6b5a9e; font-weight:bold; }
+  .card .ct { position:absolute; top:-6px; right:-4px; background:#a78bfa; color:#fff; font-size:11px; font-weight:bold;
+    border-radius:10px; padding:1px 7px; border:2px solid #fff; }
+  .card .cost { font-size:12px; color:#8a6fd0; font-weight:bold; margin-top:2px; }
+  .card .mpt { font-size:9px; color:#a99ace; }
+  #tapCard { background:linear-gradient(180deg,#fff6e0,#ffe9c2); border-color:#ffd591; }
+  #tapCard.afford { border-color:#f5a623; box-shadow:0 0 0 3px rgba(245,166,35,.25); }
+  /* Prestige-Leiste über Shop */
+  #prestigeBar { position:fixed; left:8px; right:8px; bottom:calc(118px + env(safe-area-inset-bottom,0)); z-index:9;
+    display:flex; gap:6px; align-items:stretch; }
+  #prestigeBtn { flex:1; border:none; border-radius:16px; padding:9px 6px; font-family:inherit; font-weight:bold;
+    font-size:14px; color:#fff; background:linear-gradient(180deg,#ffd54f,#ffb300);
+    box-shadow:0 3px 0 #d99a00, 0 4px 10px rgba(217,154,0,.35); pointer-events:auto; }
+  #prestigeBtn:disabled { filter:grayscale(.8); opacity:.55; box-shadow:none; }
+  #autoBtn { flex:0 0 auto; border:none; border-radius:16px; padding:9px 12px; font-size:18px; font-family:inherit;
+    background:linear-gradient(180deg,#b39ddb,#9575cd); color:#fff; box-shadow:0 3px 0 #6a4fa3; }
+  #autoBtn.on { background:linear-gradient(180deg,#aed581,#7cb342); box-shadow:0 3px 0 #558b2f; }
+  /* Modals */
+  .modal { position:fixed; inset:0; z-index:20; background:rgba(80,50,140,.45); display:flex;
+    align-items:center; justify-content:center; padding:20px; }
+  .modal.hidden { display:none; }
+  .box { background:#fff; border-radius:22px; padding:22px; max-width:340px; width:100%; text-align:center;
+    box-shadow:0 10px 40px rgba(60,30,120,.35); border:3px solid #e2d4ff; }
+  .box h2 { color:#5b3fa8; margin-bottom:8px; font-size:22px; }
+  .box p { color:#6b5a9e; font-size:15px; line-height:1.5; margin-bottom:14px; }
+  .box .big { font-size:34px; font-weight:bold; color:#f5a623; margin:6px 0; }
+  .box button { border:none; border-radius:14px; padding:11px 26px; font-family:inherit; font-weight:bold; font-size:16px;
+    color:#fff; background:linear-gradient(180deg,#b39ddb,#9575cd); box-shadow:0 3px 0 #6a4fa3; margin:4px; }
+  .box button.gold { background:linear-gradient(180deg,#ffd54f,#ffb300); box-shadow:0 3px 0 #d99a00; color:#7a5200; }
+  /* Update-Banner */
+  #updateBanner { position:fixed; top:calc(env(safe-area-inset-top,0) + 4px); left:50%; transform:translateX(-50%); z-index:30;
+    background:#2e7d32; color:#fff; font-size:14px; font-weight:bold; padding:8px 16px; border-radius:20px;
+    box-shadow:0 3px 12px rgba(0,0,0,.3); cursor:pointer; display:none; align-items:center; gap:8px; white-space:nowrap; }
+  #updateBanner span { background:#fff; color:#2e7d32; border-radius:12px; padding:2px 10px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div id="manaBig">✨ 0</div>
+  <div id="mpsRow">⚡ 0/s</div>
+  <div id="starsRow">⭐ 0</div>
+</div>
+
+<div id="prestigeBar">
+  <button id="prestigeBtn">⭐ Prestige</button>
+  <button id="autoBtn">🤖</button>
+</div>
+
+<div id="shop"></div>
+
+<div id="offlineModal" class="modal hidden"><div class="box">
+  <h2>🌙 Willkommen zurück!</h2>
+  <p>Deine Zauberer haben weitergearbeitet:</p>
+  <div class="big" id="offlineGain">✨ 0</div>
+  <button id="offlineOk">Weiter geht's!</button>
+</div></div>
+
+<div id="prestigeModal" class="modal hidden"><div class="box">
+  <h2>⭐ Prestige</h2>
+  <p>Der Turm wird neu aufgebaut — Wizards und Tap-Upgrades verschwinden,<br>aber du erhältst Sterne für <b>+5% Mana pro Stern</b> (für immer!):</p>
+  <div class="big" id="prestigeGain">+0 ⭐</div>
+  <button id="prestigeGo" class="gold">⭐ Prestige!</button>
+  <button id="prestigeCancel">Später</button>
+</div></div>
+
+<div id="autoModal" class="modal hidden"><div class="box">
+  <h2>🤖 Auto-Prestige</h2>
+  <div id="autoBody">
+    <p id="autoDesc">Prestigt automatisch, sobald die Schwelle an Sternen erreicht ist:</p>
+    <div class="big" id="autoThreshold">Schwelle: 1 ⭐</div>
+    <button id="autoMinus">−1</button>
+    <button id="autoPlus">+1</button>
+    <br>
+    <button id="autoToggle" class="gold">An/Aus</button>
+  </div>
+  <div id="autoLocked">
+    <p>Schalte Auto-Prestige frei:<br>kostet <b>3 ⭐</b></p>
+    <button id="autoUnlock" class="gold">🔓 Für 3 ⭐ kaufen</button>
+  </div>
+  <button id="autoClose">Schließen</button>
+</div></div>
+
+<div id="updateBanner">🔄 Update verfügbar <span>Neu laden</span></div>
+
+<script src="game.js"></script>
+<script>
+(function () {
+  'use strict';
+  var G = window.GameCore;
+
+  // ---------- State ----------
+  var state = G.newState();
+  try {
+    var raw = localStorage.getItem(G.SAVE_KEY);
+    if (raw) {
+      state = G.deserialize(raw);
+      var off = G.applyOffline(state, Date.now());
+      if (off.gain >= 1) {
+        document.getElementById('offlineGain').textContent = '✨ ' + G.fmt(off.gain);
+        document.getElementById('offlineModal').classList.remove('hidden');
+      }
+    }
+  } catch (e) { state = G.newState(); }
+
+  var saveTimer = 0;
+  function saveGame() {
+    try { localStorage.setItem(G.SAVE_KEY, G.serialize(state)); } catch (e) {}
+  }
+
+  // ---------- Auto-Prestige Freischalt-Zähler (runMana seit letztem Prestige steuert nur Stars) ----------
+  // (checkAutoPrestige ist in tick() integriert)
+
+  // ---------- Canvas ----------
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
+  var W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Wolken
+  var clouds = [];
+  for (var i = 0; i < 5; i++) clouds.push({ x: Math.random(), y: 0.08 + Math.random() * 0.25, s: 0.6 + Math.random() * 0.8, v: 0.004 + Math.random() * 0.008 });
+
+  // Sterne-Hintergrund (oben)
+  var bgStars = [];
+  for (var j = 0; j < 40; j++) bgStars.push({ x: Math.random(), y: Math.random() * 0.45, tw: Math.random() * Math.PI * 2 });
+
+  // Partikel (Mana-Orbs beim Tap)
+  var orbs = [];
+  function spawnOrb(x, y) {
+    orbs.push({ x: x, y: y, vx: (Math.random() - 0.5) * 120, vy: -140 - Math.random() * 80, life: 1, em: Math.random() < 0.25 ? '⭐' : '✨' });
+  }
+
+  // Turm-Geometrie (relative Einheiten)
+  function towerGeom() {
+    var tw = Math.min(W * 0.62, 300);
+    var baseY = H - 150; // über dem Shop
+    return { x: W / 2, w: tw, base: baseY, floors: 5, fh: 62 };
+  }
+
+  function drawWizardStack(tx, t) {
+    // Zauberer auf den Turmsebenen, Anzahl skaliert (max ~8 sichtbar pro Typ-Reihe)
+    var floors = [];
+    G.WIZARDS.forEach(function (wz, idx) { if (state.wiz[wz.id] > 0) floors.push(wz); });
+    var geom = towerGeom();
+    floors.forEach(function (wz, idx) {
+      var fy = geom.base - geom.fh * (idx % geom.floors) - 24;
+      var n = Math.min(state.wiz[wz.id], 6);
+      for (var k = 0; k < n; k++) {
+        var px = geom.x + (k - (n - 1) / 2) * 34 + Math.sin(t * 1.4 + idx + k) * 3;
+        var py = fy + Math.sin(t * 2 + k * 1.7 + idx) * 4;
+        ctx.font = '26px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(wz.emoji, px, py);
+      }
+      if (state.wiz[wz.id] > 6) {
+        ctx.font = 'bold 12px sans-serif'; ctx.fillStyle = 'rgba(91,63,168,.85)';
+        ctx.fillText('+' + (state.wiz[wz.id] - 6), geom.x + (n - 1) * 17 + 18, fy);
+      }
+    });
+  }
+
+  function draw(t) {
+    ctx.clearRect(0, 0, W, H);
+    // Nachthimmel-Verlauf oben
+    var sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#2c2467'); sky.addColorStop(0.35, '#7e6bd0');
+    sky.addColorStop(0.7, '#e8d9ff'); sky.addColorStop(1, '#ffe9f3');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    // Sterne funkeln
+    bgStars.forEach(function (st) {
+      var a = 0.4 + 0.6 * Math.abs(Math.sin(t * 0.8 + st.tw));
+      ctx.globalAlpha = a; ctx.font = '14px serif'; ctx.textAlign = 'center';
+      ctx.fillText('✦', st.x * W, st.y * H);
+    });
+    ctx.globalAlpha = 1;
+    // Mond
+    ctx.font = '44px serif'; ctx.fillText('🌙', W * 0.82, H * 0.12 + Math.sin(t * 0.3) * 4);
+    // Wolken
+    clouds.forEach(function (cl) {
+      cl.x += cl.v * 0.016; if (cl.x > 1.2) cl.x = -0.2;
+      var cx = cl.x * W, cy = cl.y * H;
+      ctx.font = Math.round(30 * cl.s) + 'px serif'; ctx.globalAlpha = 0.75;
+      ctx.fillText('☁️', cx, cy);
+    });
+    ctx.globalAlpha = 1;
+    // Hügel
+    ctx.fillStyle = '#b9e4a5';
+    ctx.beginPath(); ctx.ellipse(W * 0.2, H + 40, W * 0.55, 110, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#a3d98d';
+    ctx.beginPath(); ctx.ellipse(W * 0.9, H + 50, W * 0.5, 120, 0, 0, Math.PI * 2); ctx.fill();
+    // Turm
+    var g = towerGeom();
+    var topY = g.base - g.floors * g.fh;
+    // Schatten
+    ctx.fillStyle = 'rgba(0,0,0,.12)';
+    ctx.beginPath(); ctx.ellipse(g.x, g.base + 8, g.w * 0.55, 16, 0, 0, Math.PI * 2); ctx.fill();
+    // Schaft
+    for (var f = 0; f < g.floors; f++) {
+      var fy = g.base - (f + 1) * g.fh;
+      var wobble = Math.sin(t * 1.2 + f * 0.8) * (2 + f);
+      var fw = g.w * (1 - f * 0.07);
+      ctx.fillStyle = f % 2 ? '#f3ecff' : '#e8dbff';
+      roundRect(g.x - fw / 2 + wobble, fy, fw, g.fh - 4, 12);
+      ctx.fill();
+      // Fenster (leuchtet, je mehr Mana desto heller)
+      var glow = Math.min(1, state.totalMana / 50000);
+      ctx.fillStyle = 'rgba(255,220,120,' + (0.5 + glow * 0.5) + ')';
+      ctx.beginPath(); ctx.arc(g.x + wobble, fy + g.fh / 2 - 4, 8, 0, Math.PI * 2); ctx.fill();
+    }
+    // Dach (Kegel) + Fahne
+    var roofW = g.w * (1 - 4 * 0.07);
+    var rWob = Math.sin(t * 1.2 + 4 * 0.8) * (2 + 4);
+    ctx.fillStyle = '#c77dff';
+    ctx.beginPath();
+    ctx.moveTo(g.x - roofW / 2 - 10 + rWob, topY);
+    ctx.lineTo(g.x + roofW / 2 + 10 + rWob, topY);
+    ctx.lineTo(g.x + rWob, topY - 54); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#8a6fd0'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(g.x + rWob, topY - 54); ctx.lineTo(g.x + rWob, topY - 78); ctx.stroke();
+    ctx.font = '18px serif'; ctx.fillText('⭐', g.x + rWob + 8, topY - 74);
+    // Zauberer
+    drawWizardStack(g, t);
+    // Umkreis-Sterne (je nach Stern-Anzahl, max 10)
+    for (var s2 = 0; s2 < Math.min(state.stars, 10); s2++) {
+      var ang = t * 0.7 + (s2 / 10) * Math.PI * 2;
+      ctx.font = '15px serif';
+      ctx.fillText('⭐', g.x + Math.cos(ang) * (g.w * 0.75), topY - 20 + Math.sin(ang) * 26);
+    }
+    // Partikel
+    for (var p = orbs.length - 1; p >= 0; p--) {
+      var o = orbs[p];
+      o.life -= 0.02; o.x += o.vx * 0.016; o.y += o.vy * 0.016; o.vy += 160 * 0.016;
+      if (o.life <= 0) { orbs.splice(p, 1); continue; }
+      ctx.globalAlpha = Math.max(0, o.life);
+      ctx.font = '22px serif'; ctx.fillText(o.em, o.x, o.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ---------- Shop-UI ----------
+  var shopEl = document.getElementById('shop');
+  var cards = {};
+  function buildShop() {
+    shopEl.innerHTML = '';
+    // Tap-Upgrade Karte
+    var tc = document.createElement('div');
+    tc.className = 'card'; tc.id = 'tapCard';
+    tc.innerHTML = '<div class="em">👆</div><div class="nm">Tap-Kraft</div><div class="cost" id="tapCost">✨ 25</div><div class="mpt" id="tapPow">+1 pro Tap</div>';
+    tc.addEventListener('pointerdown', function (e) { e.preventDefault(); if (G.buyTap(state)) { popOrb(innerWidth / 2, innerHeight / 2); updateUI(); saveGame(); } });
+    shopEl.appendChild(tc);
+    cards.tap = tc;
+    // Wizards
+    G.WIZARDS.forEach(function (wz) {
+      var d = document.createElement('div');
+      d.className = 'card';
+      d.innerHTML = '<div class="em">' + wz.emoji + '</div><div class="ct" id="ct_' + wz.id + '" style="display:none">0</div>' +
+        '<div class="nm">' + wz.name + '</div><div class="cost" id="cost_' + wz.id + '">✨ ' + G.fmt(wz.baseCost) + '</div>' +
+        '<div class="mpt">+' + wz.mps + '/s</div>';
+      d.addEventListener('pointerdown', function (e) {
+        e.preventDefault();
+        if (G.buyWizard(state, wz.id)) { popOrb(innerWidth / 2, innerHeight / 2 - 60); updateUI(); saveGame(); }
+      });
+      shopEl.appendChild(d);
+      cards[wz.id] = d;
+    });
+  }
+  buildShop();
+
+  function popOrb(x, y) { for (var i = 0; i < 5; i++) spawnOrb(x + (Math.random() - 0.5) * 60, y + (Math.random() - 0.5) * 30); }
+
+  // ---------- Tap auf Spielfeld = Mana ----------
+  var lastTapT = 0;
+  canvas.addEventListener('pointerdown', function (e) {
+    var gain = G.tapMana(state);
+    spawnOrb(e.clientX, e.clientY);
+    spawnOrb(e.clientX + 10, e.clientY + 6);
+    lastTapT = performance.now();
+    updateUI();
+  });
+
+  // ---------- Prestige ----------
+  var prestigeBtn = document.getElementById('prestigeBtn');
+  var prestigeModal = document.getElementById('prestigeModal');
+  prestigeBtn.addEventListener('click', function () {
+    document.getElementById('prestigeGain').textContent = '+' + G.pendingStars(state) + ' ⭐';
+    prestigeModal.classList.remove('hidden');
+  });
+  document.getElementById('prestigeCancel').addEventListener('click', function () { prestigeModal.classList.add('hidden'); });
+  document.getElementById('prestigeGo').addEventListener('click', function () {
+    var got = G.doPrestige(state);
+    if (got > 0) { saveGame(); }
+    prestigeModal.classList.add('hidden');
+    updateUI();
+  });
+
+  // ---------- Auto-Prestige Modal ----------
+  var autoBtn = document.getElementById('autoBtn');
+  var autoModal = document.getElementById('autoModal');
+  autoBtn.addEventListener('click', function () { refreshAutoModal(); autoModal.classList.remove('hidden'); });
+  document.getElementById('autoClose').addEventListener('click', function () { autoModal.classList.add('hidden'); saveGame(); });
+  document.getElementById('offlineOk').addEventListener('click', function () { document.getElementById('offlineModal').classList.add('hidden'); saveGame(); });
+  document.getElementById('autoUnlock').addEventListener('click', function () {
+    if (G.unlockAuto(state)) { saveGame(); }
+    refreshAutoModal();
+  });
+  document.getElementById('autoToggle').addEventListener('click', function () { G.toggleAuto(state); refreshAutoModal(); });
+  document.getElementById('autoMinus').addEventListener('click', function () { G.setAutoThreshold(state, state.autoThreshold - 1); refreshAutoModal(); });
+  document.getElementById('autoPlus').addEventListener('click', function () { G.setAutoThreshold(state, state.autoThreshold + 1); refreshAutoModal(); });
+  function refreshAutoModal() {
+    document.getElementById('autoBody').style.display = state.autoUnlocked ? 'block' : 'none';
+    document.getElementById('autoLocked').style.display = state.autoUnlocked ? 'none' : 'block';
+    if (state.autoUnlocked) {
+      document.getElementById('autoThreshold').textContent = 'Schwelle: ' + state.autoThreshold + ' ⭐';
+      document.getElementById('autoToggle').textContent = state.autoOn ? '🟢 An (tippen für Aus)' : '🔴 Aus (tippen für An)';
+    }
+  }
+
+  // ---------- HUD / Update ----------
+  function updateUI() {
+    document.getElementById('manaBig').textContent = '✨ ' + G.fmt(state.mana);
+    document.getElementById('mpsRow').textContent = '⚡ ' + G.fmt(G.mps(state)) + '/s';
+    document.getElementById('starsRow').textContent = '⭐ ' + state.stars;
+    var pend = G.pendingStars(state);
+    prestigeBtn.textContent = pend > 0 ? '⭐ Prestige (+' + pend + ')' : '⭐ Prestige';
+    prestigeBtn.disabled = pend < 1;
+    autoBtn.classList.toggle('on', state.autoUnlocked && state.autoOn);
+    // Cards
+    document.getElementById('tapCost').textContent = '✨ ' + G.fmt(G.tapCost(state));
+    document.getElementById('tapPow').textContent = '+' + G.fmt(G.tapPower(state) * G.starMult(state)) + ' pro Tap';
+    cards.tap.classList.toggle('afford', state.mana >= G.tapCost(state));
+    G.WIZARDS.forEach(function (wz) {
+      var cost = G.wizCostAt(state, wz.id);
+      document.getElementById('cost_' + wz.id).textContent = '✨ ' + G.fmt(cost);
+      var ct = document.getElementById('ct_' + wz.id);
+      ct.style.display = state.wiz[wz.id] > 0 ? 'block' : 'none';
+      ct.textContent = state.wiz[wz.id];
+      cards[wz.id].classList.toggle('afford', state.mana >= cost);
+    });
+  }
+
+  // ---------- Loop ----------
+  var last = performance.now();
+  function loop(now) {
+    var dt = Math.min((now - last) / 1000, 0.5);
+    last = now;
+    G.tick(state, dt);
+    saveTimer += dt;
+    if (saveTimer > 2) { saveTimer = 0; saveGame(); }
+    updateUI();
+    draw(now / 1000);
+    requestAnimationFrame(loop);
+  }
+  updateUI();
+  requestAnimationFrame(loop);
+
+  document.addEventListener('visibilitychange', function () { if (document.hidden) saveGame(); });
+  window.addEventListener('beforeunload', saveGame);
+
+  // ---------- Update-Banner (Auto-Update von GitHub) ----------
+  var REPO = 'Ninjalama1337/magie-turm';
+  var banner = document.getElementById('updateBanner');
+  function checkUpdate() {
+    if (location.protocol === 'file:') return;
+    fetch('https://api.github.com/repos/' + REPO + '/releases/latest', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.tag_name && j.tag_name !== G.APP_VERSION) banner.style.display = 'flex';
+      }).catch(function () {});
+    fetch('https://api.github.com/repos/' + REPO + '/commits/main', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var sha = j && j.sha ? j.sha.slice(0, 7) : null;
+        if (!sha) return;
+        var seen = localStorage.getItem('lastSeenSha');
+        if (seen && seen !== sha) banner.style.display = 'flex';
+        else if (!seen) localStorage.setItem('lastSeenSha', sha);
+      }).catch(function () {});
+  }
+  banner.addEventListener('click', function () {
+    localStorage.setItem('lastSeenSha', '');
+    if (window.caches) caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); })
+      .finally(function () { location.reload(true); });
+    else location.reload(true);
+  });
+  setTimeout(checkUpdate, 3000);
+  setInterval(checkUpdate, 60000);
+
+  // ---------- Service Worker ----------
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('./sw.js').catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>

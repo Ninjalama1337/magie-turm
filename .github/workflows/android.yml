@@ -1,0 +1,84 @@
+name: Android APK
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: npm install
+        run: npm install --no-audit --no-fund
+
+      - name: Unit-Tests (Game-Logik)
+        run: node test.js
+
+      - name: Syntax-Checks (UI/SW/HTML)
+        run: node check.js
+
+      - name: www befüllen
+        run: |
+          mkdir -p www
+          cp index.html www/index.html
+          cp game.js www/game.js
+          cp sw.js www/sw.js
+          cp manifest.json www/manifest.json
+          cp icon-192.png www/icon-192.png
+          cp icon-512.png www/icon-512.png
+
+      - name: Capacitor sync
+        run: npx cap copy android && npx cap sync android
+
+      - name: key.properties (aus Repo-Keystore)
+        run: |
+          echo 'storeFile=../../keystore.jks' > android/key.properties
+          echo 'storePassword=magieturm2026' >> android/key.properties
+          echo 'keyAlias=magieturm' >> android/key.properties
+          echo 'keyPassword=magieturm2026' >> android/key.properties
+
+      - name: Build APK
+        run: cd android && chmod +x gradlew && ./gradlew assembleDebug
+
+      - name: APK signiert? (Verifikation)
+        run: |
+          SDK=${ANDROID_HOME:-/usr/local/lib/android/sdk}
+          $SDK/build-tools/34.0.0/apksigner verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | head -2
+
+      - name: APK umbenennen
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk magie-turm.apk
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: magie-turm-apk
+          path: magie-turm.apk
+
+      - name: Release (bei Tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: magie-turm.apk
+          generate_release_notes: true

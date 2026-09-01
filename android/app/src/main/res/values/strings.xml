@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Magie-Turm</string>
+    <string name="title_activity_main">Magie-Turm</string>
+    <string name="package_name">de.ninjalama.magieturm</string>
+    <string name="custom_url_scheme">de.ninjalama.magieturm</string>
+</resources>
