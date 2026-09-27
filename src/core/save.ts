@@ -1,5 +1,6 @@
 import Decimal from 'break_eternity.js';
 import { freshBuffs, SAVE_VERSION } from './run';
+import { STARTER } from '../content/unlocks';
 import type { MetaBonuses, RunState } from './types';
 
 const RUN_KEY = 'teufelsrad.run.v1';
@@ -81,6 +82,13 @@ export interface MetaState {
   achievements: string[];
   dailies: Record<string, DailyRecord>;
   settings: Settings;
+  insight: Insight;
+}
+
+/** Erkenntnis-Fortschritt: freigeschalteter Karten-Pool */
+export interface Insight {
+  xp: number;
+  unlocked: string[];
 }
 
 export interface DailyRecord {
@@ -113,6 +121,7 @@ export const DEFAULT_META_STATE: MetaState = {
   achievements: [],
   dailies: {},
   settings: { music: 0.6, sfx: 0.8, shake: true, reducedFx: false },
+  insight: { xp: 0, unlocked: [...STARTER] },
 };
 
 export interface MetaUpgrade {
@@ -178,6 +187,8 @@ export function loadMeta(): MetaState {
     if (!raw) return structuredClone(DEFAULT_META_STATE);
     const m = { ...structuredClone(DEFAULT_META_STATE), ...JSON.parse(raw) } as MetaState;
     m.settings = { ...DEFAULT_META_STATE.settings, ...m.settings };
+    // Ältere Spielstände starten mit dem kleinen Start-Pool neu
+    if (!m.insight?.unlocked) m.insight = { xp: 0, unlocked: [...STARTER] };
     return m;
   } catch {
     return structuredClone(DEFAULT_META_STATE);

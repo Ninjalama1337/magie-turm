@@ -5,6 +5,8 @@ import type { App } from '../app';
 import { h } from '../dom';
 import { glyphSvg } from '../icons';
 import { showHelp, showSettings } from './menu';
+import { insightBadge } from '../insight';
+import { ALL_REFS } from '../../content/unlocks';
 
 export function renderTitle(app: App): () => void {
   const root = h('div', { class: 'screen title' });
@@ -43,6 +45,7 @@ export function renderTitle(app: App): () => void {
   view.hot = 0.4;
 
   const btns = root.querySelector('[data-buttons]') as HTMLElement;
+  root.querySelector('.title-stats')!.before(insightBadge(app.meta.insight.xp, app.meta.insight.unlocked.length, ALL_REFS().length));
   const add = (label: string, cls: string, fn: () => void, sub?: string) => {
     const b = h('button', { class: `btn ${cls}`, html: `${label}${sub ? `<small>${sub}</small>` : ''}` });
     b.addEventListener('click', () => {

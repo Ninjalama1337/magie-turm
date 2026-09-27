@@ -371,5 +371,6 @@ export function simulateSpin(run: RunState, bet: Bet, rng: Rng, opts: SpinOption
     mainLaps: ctx.mainLaps,
     totalLaps: ctx.totalLaps,
     ghosts: ctx.ghostsSpawned,
+    sigilTriggers: ctx.sigilTriggers,
   };
 }

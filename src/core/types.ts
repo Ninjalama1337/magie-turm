@@ -87,6 +87,8 @@ export interface RunStats {
   maxLaps: number;
   maxGhosts: number;
   betsHit: number;
+  /** Bereits gutgeschriebene Erkenntnis (Sieg + späteres Ende im Jenseits) */
+  xpGranted?: number;
 }
 
 export type Phase = 'ritual' | 'shop' | 'gameover' | 'victory';
@@ -109,6 +111,8 @@ export interface RunState {
   omens: string[];
   potions: string[];
   buffs: Buffs;
+  /** Freigeschaltete Elemente beim Run-Start (undefined = alles verfügbar) */
+  pool?: string[];
   seed: number;
   rngState: number;
   circle: number;
@@ -344,4 +348,5 @@ export interface SpinResult {
   mainLaps: number;
   totalLaps: number;
   ghosts: number;
+  sigilTriggers: number;
 }

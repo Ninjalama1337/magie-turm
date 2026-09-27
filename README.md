@@ -39,6 +39,12 @@ Mit **Asche** aus beendeten Runs schaltest du im **Grimoire** dauerhafte Boni fr
 
 Einen neuen Kessel schaltest du frei, indem du mit dem vorherigen gewinnst oder ihn mit Asche kaufst. Jeder Sieg öffnet die nächste der 5 Höllenstufen für diesen Kessel.
 
+### Freischaltungen (Erkenntnis)
+Jeder Run beginnt mit einem kleinen **Start-Pool**: 12 Arkana, 8 Siegel, 10 Pakte und 4 Tränke. Alles andere ist versiegelt und im Kodex mit einem Hinweis sichtbar, wie man es freischaltet.
+- **Erkenntnis-Stufen:** Jeder normale Run gibt Erkenntnis, auch eine Niederlage, und je tiefer man kommt, desto mehr. 16 Stufen schalten in kuratierter Reihenfolge zusammenpassende **Kombo-Gruppen** frei, zum Beispiel „Tag und Nacht“ (Sonne, Mond, Pakt der Farben) oder „Geisterstunde“ (Schatten, Liebende, Irrlichtsiegel, Zweite Kugel, Horde).
+- **Entdeckungen:** 15 Karten entdeckt man durch eine bestimmte Spielweise. Beispiele: 20 Runden in einer Drehung schalten *Der Teufel* frei, 5 Irrlichter schalten *Ritter der Kelche* frei. Entdeckte Karten erscheinen sofort im Basar des laufenden Runs.
+- **Ausnahme:** Tägliche und wöchentliche Herausforderungen nutzen den vollen Pool, damit sie für alle gleich sind.
+
 ### Herausforderungen
 Täglich und wöchentlich gibt es einen festen Seed mit Kessel, Stufe und Omen, gleich für alle Spieler. Grimoire-Boni gelten dabei nicht, und gewertet wird der erste Versuch (lokaler Verlauf und Serie).
 
@@ -53,7 +59,7 @@ Täglich und wöchentlich gibt es einen festen Seed mit Kessel, Stufe und Omen, 
 npm install
 npm run dev        # Dev-Server
 npm test           # Unit-Tests (Vitest)
-npm run sim        # Balance-Simulation (Greedy-Bots), z. B. npm run sim -- runs=500 bot=dumb
+npm run sim        # Balance-Simulation, z. B. npm run sim -- runs=500 pool=starter bot=sim
 npm run build      # Typecheck + Produktions-Build nach dist/
 npm run e2e        # Playwright-Smoke-Test gegen den Build (Screenshots in e2e/shots/)
 npm run icons      # PWA- und Android-Icons/Splashscreens aus public/icon.svg erzeugen
