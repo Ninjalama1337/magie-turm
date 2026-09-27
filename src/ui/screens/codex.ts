@@ -7,7 +7,22 @@ import { OMENS } from '../../content/omens';
 import { POTIONS } from '../../content/potions';
 import { WHEELS } from '../../core/wheel';
 import type { App } from '../app';
-import { arcanaCard, arcanaDetail, modal, pactCard, potionCard, sigilDetail, sigilTile } from '../components';
+import { DISCOVERIES } from '../../content/unlocks';
+import {
+  arcanaCard,
+  arcanaDetail,
+  lockedCard,
+  lockHint,
+  modal,
+  pactCard,
+  pactDetail,
+  potionCard,
+  potionDetail,
+  refKindLabel,
+  refName,
+  sigilDetail,
+  sigilTile,
+} from '../components';
 import { h } from '../dom';
 import { glyphSvg } from '../icons';
 
@@ -27,11 +42,25 @@ export function renderCodex(app: App): void {
   app.root.append(root);
   const tabsEl = root.querySelector('[data-tabs]') as HTMLElement;
   const grid = root.querySelector('[data-grid]') as HTMLElement;
+  const unlocked = new Set(app.meta.insight.unlocked);
+  const count = (kind: string, ids: { id: string }[]) => `${ids.filter((x) => unlocked.has(`${kind}:${x.id}`)).length}/${ids.length}`;
+  const entry = (kind: 'arcana' | 'sigil' | 'pact' | 'potion', id: string, card: () => HTMLElement, detail: () => string): HTMLElement => {
+    const r = `${kind}:${id}`;
+    if (!unlocked.has(r)) {
+      const c = lockedCard(r);
+      c.addEventListener('click', () => modal(`${detail()}<p class="lock-note">${glyphSvg('chain')} ${lockHint(r)}</p>`, [{ label: 'Schließen' }]));
+      return c;
+    }
+    const c = card();
+    c.addEventListener('click', () => modal(detail(), [{ label: 'Schließen' }]));
+    return c;
+  };
+
   const tabs: [Tab, string][] = [
-    ['arcana', `Arkana (${ARCANA.length})`],
-    ['sigils', `Siegel (${SIGILS.length})`],
-    ['pacts', `Pakte (${PACTS.length})`],
-    ['potions', `Tränke (${POTIONS.length})`],
+    ['arcana', `Arkana (${count('arcana', ARCANA)})`],
+    ['sigils', `Siegel (${count('sigil', SIGILS)})`],
+    ['pacts', `Pakte (${count('pact', PACTS)})`],
+    ['potions', `Tränke (${count('potion', POTIONS)})`],
     ['demons', 'Dämonen & Fächer'],
     ['wheels', 'Kessel & Omen'],
     ['achievements', `Erfolge (${app.meta.achievements.length}/${ACHIEVEMENTS.length})`],
@@ -50,21 +79,13 @@ export function renderCodex(app: App): void {
     grid.innerHTML = '';
     grid.className = `codex-grid t-${tab === 'wheels' || tab === 'achievements' ? 'demons' : tab === 'potions' ? 'pacts' : tab}`;
     if (tab === 'arcana') {
-      for (const a of ARCANA) {
-        const c = arcanaCard(a.id);
-        c.addEventListener('click', () => modal(arcanaDetail(a.id), [{ label: 'Schließen' }]));
-        grid.append(c);
-      }
+      for (const a of ARCANA) grid.append(entry('arcana', a.id, () => arcanaCard(a.id), () => arcanaDetail(a.id)));
     } else if (tab === 'sigils') {
-      for (const s of SIGILS) {
-        const c = sigilTile(s.id);
-        c.addEventListener('click', () => modal(sigilDetail(s.id), [{ label: 'Schließen' }]));
-        grid.append(c);
-      }
+      for (const s of SIGILS) grid.append(entry('sigil', s.id, () => sigilTile(s.id), () => sigilDetail(s.id)));
     } else if (tab === 'pacts') {
-      for (const p of PACTS) grid.append(pactCard(p.id));
+      for (const p of PACTS) grid.append(entry('pact', p.id, () => pactCard(p.id), () => pactDetail(p.id)));
     } else if (tab === 'potions') {
-      for (const p of POTIONS) grid.append(potionCard(p.id));
+      for (const p of POTIONS) grid.append(entry('potion', p.id, () => potionCard(p.id), () => potionDetail(p.id)));
     } else if (tab === 'wheels') {
       for (const w of WHEELS) {
         const el = h('div', { class: 'demon-card' + (app.meta.unlockedWheels.includes(w.id) ? '' : ' locked') });
@@ -77,6 +98,14 @@ export function renderCodex(app: App): void {
         grid.append(el);
       }
     } else if (tab === 'achievements') {
+      grid.append(h('h3', { class: 'codex-sub', text: 'Entdeckungen' }));
+      for (const d of DISCOVERIES) {
+        const have = unlocked.has(d.item);
+        const el = h('div', { class: 'demon-card' + (have ? ' done' : ' locked') });
+        el.innerHTML = `${glyphSvg(have ? 'eye' : 'chain', 'glyph big')}<div><b>${have ? refName(d.item) : '???'}</b> <span class="muted">${refKindLabel(d.item)}</span><p>${d.hint}</p></div>`;
+        grid.append(el);
+      }
+      grid.append(h('h3', { class: 'codex-sub', text: 'Erfolge' }));
       for (const a of ACHIEVEMENTS) {
         const have = app.meta.achievements.includes(a.id);
         const el = h('div', { class: 'demon-card' + (have ? ' done' : ' locked') });

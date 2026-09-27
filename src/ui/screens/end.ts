@@ -3,6 +3,7 @@ import { fmt } from '../../core/num';
 import { ashFor, circleName, continueEndless } from '../../core/run';
 import type { App } from '../app';
 import { h } from '../dom';
+import { insightPanel } from '../insight';
 import { glyphSvg } from '../icons';
 
 export function renderEnd(app: App): void {
@@ -11,6 +12,8 @@ export function renderEnd(app: App): void {
   const victory = run.phase === 'victory';
   const ash = victory ? ashFor(run) : app.endRun();
   const news = victory ? app.recordVictory() : [];
+  const xp = app.lastXp;
+  app.lastXp = null;
 
   const st = run.stats;
   const root = h('div', { class: `screen end ${victory ? 'victory' : 'defeat'}` });
@@ -34,8 +37,10 @@ export function renderEnd(app: App): void {
     </div>
     ${news.map((n) => `<div class="end-news">${glyphSvg('star')} ${n}</div>`).join('')}
     <div class="end-ash">${glyphSvg('flame')} <b>+${ash}</b> Asche ${victory ? '(beim Beenden)' : 'verdient'}</div>
+    <div data-insight></div>
     <div class="end-buttons" data-b></div>`;
   app.root.append(root);
+  if (xp) root.querySelector('[data-insight]')!.append(insightPanel(xp, app.meta.insight.xp));
   const b = root.querySelector('[data-b]') as HTMLElement;
 
   if (victory) {

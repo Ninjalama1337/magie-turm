@@ -514,6 +514,7 @@ export function renderRitual(app: App): () => void {
     renderArcana();
     app.saveAll();
     app.achievements({ run, spin: result });
+    app.discoveries({ run, spin: result });
     await wait(1000 / Math.max(1, app.meta.speed / 1.5));
     if (disposed) return;
     root.classList.remove('frenzy');
@@ -531,7 +532,9 @@ export function renderRitual(app: App): () => void {
   }
 
   function showReward(): void {
+    const spinsUsed = stats.spins - run.spinsLeft;
     const lines = finishRitual(run);
+    app.discoveries({ run, ritualWon: { spinsUsed } });
     app.saveAll();
     app.achievements({ run });
     const total = lines.reduce((s, l) => s + l.souls, 0);

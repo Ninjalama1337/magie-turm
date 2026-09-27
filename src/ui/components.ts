@@ -4,6 +4,7 @@ import { PACT_BY_ID } from '../content/pacts';
 import { SIGIL_BY_ID } from '../content/sigils';
 import { SUIT_NAME } from '../content/arcana-minor';
 import { POTION_BY_ID } from '../content/potions';
+import { parseRef, unlockSource, type UnlockKind } from '../content/unlocks';
 import type { ArcanaInst, Edition, Enchant, PactInst, SigilInst, Suit } from '../core/types';
 import { colorOf, pocketLabel, type WheelDef } from '../core/wheel';
 import { RARITY_COLOR, RARITY_LABEL, SIGIL_COLOR } from '../render/colors';
@@ -209,4 +210,51 @@ export function modal(content: string | HTMLElement, buttons: ModalButton[] = []
   }
   document.body.append(back);
   return close;
+}
+
+// ------------------------------------------------------------ Freischaltungen
+
+const KIND_LABEL: Record<UnlockKind, string> = { arcana: 'Arkana', sigil: 'Siegel', pact: 'Pakt', potion: 'Trank' };
+
+export function refName(r: string): string {
+  const { kind, id } = parseRef(r);
+  const name =
+    kind === 'arcana' ? ARCANA_BY_ID[id]?.name : kind === 'sigil' ? SIGIL_BY_ID[id]?.name : kind === 'pact' ? PACT_BY_ID[id]?.name : POTION_BY_ID[id]?.name;
+  return name ?? id;
+}
+
+export function refKindLabel(r: string): string {
+  return KIND_LABEL[parseRef(r).kind];
+}
+
+export function refCard(r: string): HTMLElement {
+  const { kind, id } = parseRef(r);
+  if (kind === 'arcana') return arcanaCard(id);
+  if (kind === 'sigil') return sigilTile(id);
+  if (kind === 'pact') return pactCard(id);
+  return potionCard(id);
+}
+
+export function refDetail(r: string): string {
+  const { kind, id } = parseRef(r);
+  if (kind === 'arcana') return arcanaDetail(id);
+  if (kind === 'sigil') return sigilDetail(id);
+  if (kind === 'pact') return pactDetail(id);
+  return potionDetail(id);
+}
+
+/** Hinweis, wie ein versiegeltes Element freigeschaltet wird */
+export function lockHint(r: string): string {
+  const src = unlockSource(r);
+  if (src.level) return `Erkenntnis-Stufe ${src.level} · „${src.theme}“`;
+  if (src.hint) return `Entdeckung: ${src.hint}`;
+  return 'Versiegelt';
+}
+
+/** Versiegelte Karte für den Kodex */
+export function lockedCard(r: string): HTMLElement {
+  const el = refCard(r);
+  el.classList.add('locked-card');
+  el.append(h('div', { class: 'lock-overlay', html: `${glyphSvg('chain')}<span>${lockHint(r)}</span>` }));
+  return el;
 }

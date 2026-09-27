@@ -76,6 +76,8 @@ export interface RunOptions {
   mode?: RunMode;
   dailyKey?: string;
   omens?: string[];
+  /** Verfügbarer Karten-Pool (Freischaltungen); ohne Angabe ist alles verfügbar */
+  pool?: string[];
 }
 
 export function newRun(seed: number, meta: MetaBonuses = DEFAULT_META, opts: RunOptions = {}): RunState {
@@ -89,6 +91,7 @@ export function newRun(seed: number, meta: MetaBonuses = DEFAULT_META, opts: Run
     omens: opts.omens ?? [],
     potions: [],
     buffs: freshBuffs(),
+    pool: opts.pool ? [...opts.pool] : undefined,
     seed,
     rngState: 0,
     circle: 1,

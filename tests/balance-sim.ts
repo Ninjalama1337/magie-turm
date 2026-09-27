@@ -1,7 +1,9 @@
 /* Balance-Simulation: spielt viele Runs mit einer einfachen Greedy-KI.
- * Aufruf: npm run sim [-- runs=500 bot=smart]
+ * Aufruf: npm run sim [-- runs=500 bot=smart|dumb|sim pool=starter|<stufe> wheel=euro stake=1]
+ * bot=sim bewertet Käufe per Simulation (langsam, aber realistischer bei großen Pools).
  */
 import { ARCANA_BY_ID } from '../src/content/arcana';
+import { LEVELS, STARTER } from '../src/content/unlocks';
 import { fmt } from '../src/core/num';
 import { continueEndless, finishRitual, FINAL_CIRCLE, newRun, nextRitual, spin, withRng } from '../src/core/run';
 import {
@@ -16,7 +18,8 @@ import {
   upgradePrice,
   usePotion,
 } from '../src/core/shop';
-import { isBetAllowed } from '../src/core/spin';
+import { deserializeRun, serializeRun } from '../src/core/save';
+import { isBetAllowed, simulateSpin } from '../src/core/spin';
 import { computeStats } from '../src/core/stats';
 import type { Bet, RunState } from '../src/core/types';
 
@@ -26,6 +29,7 @@ const BOT = args.bot ?? 'smart';
 const MAX_CIRCLE = Number(args.max ?? 14);
 const WHEEL = args.wheel ?? 'euro';
 const STAKE = Number(args.stake ?? 1);
+const POOL = args.pool === 'starter' ? STARTER : args.pool ? [...STARTER, ...LEVELS.slice(0, Number(args.pool)).flatMap((l) => l.items)] : undefined;
 
 const RARITY_SCORE = { common: 1, uncommon: 2, rare: 3, legendary: 4 };
 
@@ -41,7 +45,58 @@ function chooseBet(run: RunState): Bet {
   return { kind: 'dozen2' };
 }
 
+/** Bewertet einen Aufbau: mittlerer log10-Score über feste Test-Drehungen */
+function evaluate(run: RunState): number {
+  let sum = 0;
+  for (let k = 0; k < 6; k++) {
+    const c = deserializeRun(serializeRun(run))!;
+    c.rngState = 1000 + k * 7919;
+    c.phase = 'ritual';
+    c.demon = null;
+    c.spinsLeft = 1;
+    const r = withRng(c, (rng) => simulateSpin(c, chooseBet(c), rng, { quiet: true }));
+    sum += r.score.max(1).log10().toNumber();
+  }
+  return sum / 6;
+}
+
+type Action = { cost: number; apply: (r: RunState) => boolean };
+
+/** Kauft per Simulation das Angebot mit dem besten Zugewinn je Seele */
+function simShopTurn(run: RunState): void {
+  for (let step = 0; step < 8; step++) {
+    const base = evaluate(run);
+    const actions: Action[] = [];
+    run.shop!.offers.forEach((o, i) => {
+      if (o.sold || !canBuy(run, o).ok || o.kind === 'potion') return;
+      actions.push({ cost: o.price, apply: (r) => buy(r, i) });
+    });
+    if (run.sigilUnlocked < 8) actions.push({ cost: unlockPrice(run), apply: (r) => unlockSlot(r) });
+    run.arcana.forEach((a, i) => {
+      if (a.level < 5) actions.push({ cost: upgradePrice(run, i), apply: (r) => upgradeArcana(r, i) });
+    });
+    let best: { a: Action; value: number } | null = null;
+    for (const a of actions) {
+      if (a.cost > run.souls) continue;
+      const c = deserializeRun(serializeRun(run))!;
+      if (!a.apply(c)) continue;
+      const gain = evaluate(c) - base;
+      const value = gain / Math.max(1, a.cost);
+      if (gain > 0.03 && (!best || value > best.value)) best = { a, value };
+    }
+    if (!best) {
+      if (run.souls >= rerollPrice(run) + 12 && step < 4) {
+        withRng(run, (rng) => reroll(run, rng));
+        continue;
+      }
+      break;
+    }
+    best.a.apply(run);
+  }
+}
+
 function shopTurn(run: RunState): void {
+  if (BOT === 'sim') return simShopTurn(run);
   const shop = run.shop!;
   for (let pass = 0; pass < 3; pass++) {
     const offers = shop.offers
@@ -70,7 +125,7 @@ function shopTurn(run: RunState): void {
 }
 
 function playRun(seed: number): { circle: number; ritual: number; best: string } {
-  const run = newRun(seed, undefined, { wheel: WHEEL, stake: STAKE });
+  const run = newRun(seed, undefined, { wheel: WHEEL, stake: STAKE, pool: POOL });
   for (;;) {
     while (run.potions.length) withRng(run, (rng) => usePotion(run, 0, rng).ok || run.potions.shift());
     const { outcome } = spin(run, chooseBet(run), true);
@@ -94,7 +149,7 @@ for (let s = 1; s <= RUNS; s++) {
   dist.set(r.circle, (dist.get(r.circle) ?? 0) + 1);
   sum += r.circle;
 }
-console.log(`Kessel: ${WHEEL}, Stufe: ${STAKE}, Bot: ${BOT}, Runs: ${RUNS}, Dauer: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+console.log(`Pool: ${args.pool ?? 'alles'}, Kessel: ${WHEEL}, Stufe: ${STAKE}, Bot: ${BOT}, Runs: ${RUNS}, Dauer: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 console.log(`Ø erreichter Kreis: ${(sum / RUNS).toFixed(2)}`);
 let cum = RUNS;
 for (let c = 1; c <= MAX_CIRCLE; c++) {

@@ -929,3 +929,44 @@ body.glitch #app { animation: glitch 0.45s steps(3) 1; }
   background: rgba(20, 8, 8, 0.96); border: 1px solid var(--gold); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); font-size: 0.9rem; white-space: nowrap;
 }
 .update-banner a.btn { text-decoration: none; }
+
+/* ============================================================ Erkenntnis & Freischaltungen */
+.insight-badge { width: min(92vw, 360px); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; margin-top: 14px; text-align: left; }
+.ins-head { display: flex; align-items: center; gap: 6px; font-family: var(--head); font-size: 0.85rem; }
+.ins-head .glyph { color: var(--ghost); }
+.ins-head b { color: var(--gold2); }
+.ins-head .muted { margin-left: auto; font-family: var(--body); font-size: 0.8rem; }
+.ins-next { font-size: 0.82rem; }
+.bar-fill.ins { background: linear-gradient(90deg, #1d5a73, var(--ghost), #e0fbff); box-shadow: 0 0 12px var(--ghost); }
+.insight-panel { width: 100%; max-width: 640px; text-align: left; }
+.insight-panel h2 { display: flex; align-items: center; gap: 6px; }
+.insight-panel h2 .glyph { color: var(--ghost); }
+.ins-gain { font-family: var(--head); font-size: 1.3rem; color: var(--ghost); text-shadow: 0 0 12px var(--ghost); }
+.ins-level { font-family: var(--head); }
+.ins-level b { display: inline-block; color: var(--gold2); font-size: 1.2rem; }
+.ins-level b.pop { animation: jump 0.5s ease; }
+.ins-themes { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.ins-themes span { font-family: var(--head); font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: rgba(29, 90, 115, 0.5); border: 1px solid rgba(126, 249, 255, 0.5); color: #cff5ff; }
+.unlock-grid { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 10px; }
+.unlock-item { display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: 0; animation: unlock-in 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
+.unlock-item .tarot { width: 84px; }
+.unlock-item .pact-card, .unlock-item .potion-card { width: 130px; min-height: 120px; }
+.unlock-label { text-align: center; font-size: 0.75rem; line-height: 1.1; }
+.unlock-label b { display: block; font-family: var(--head); color: var(--gold2); font-size: 0.72rem; }
+.unlock-label span { color: var(--muted); }
+@keyframes unlock-in {
+  0% { opacity: 0; transform: rotateY(90deg) scale(0.6); filter: brightness(3); }
+  60% { opacity: 1; transform: rotateY(-10deg) scale(1.08); filter: brightness(1.6) drop-shadow(0 0 16px var(--ghost)); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+.locked-card { position: relative; }
+.locked-card > :not(.lock-overlay) { filter: grayscale(1) brightness(0.35); }
+.tarot.locked-card { background: #3a2a22; }
+.locked-card .lock-overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  padding: 6px; text-align: center; font-size: 0.66rem; line-height: 1.2; color: #e9dcc4; z-index: 3;
+  background: rgba(0, 0, 0, 0.25); border-radius: 8px; text-shadow: 0 1px 3px #000;
+}
+.locked-card .lock-overlay .glyph { width: 22px; height: 22px; color: var(--gold); }
+.lock-note { font-size: 0.9rem; color: var(--ghost); display: flex; gap: 6px; align-items: flex-start; }
+.codex-sub { grid-column: 1 / -1; font-family: var(--head); color: var(--gold2); font-size: 0.95rem; letter-spacing: 0.1em; text-transform: uppercase; margin: 8px 0 0; }

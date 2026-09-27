@@ -11,6 +11,11 @@ import { wheelOf } from './wheel';
 
 const MAX_LEVEL = 5;
 
+/** Ist ein Element im Karten-Pool dieses Runs freigeschaltet? */
+export function inPool(run: RunState, kind: 'arcana' | 'sigil' | 'pact' | 'potion', id: string): boolean {
+  return !run.pool || run.pool.includes(`${kind}:${id}`);
+}
+
 const RARITY_WEIGHT: Record<Rarity, number> = { common: 60, uncommon: 30, rare: 10, legendary: 2 };
 
 function rarityWeight(r: Rarity, circle: number): number {
@@ -21,7 +26,7 @@ function rarityWeight(r: Rarity, circle: number): number {
 }
 
 function rollArcana(run: RunState, rng: Rng, exclude: Set<string>): ShopItem | null {
-  const pool = ARCANA.filter((a) => !exclude.has(a.id) && !run.arcana.some((o) => o.id === a.id));
+  const pool = ARCANA.filter((a) => inPool(run, 'arcana', a.id) && !exclude.has(a.id) && !run.arcana.some((o) => o.id === a.id));
   if (!pool.length) return null;
   const def = rng.weighted(pool, (a) => rarityWeight(a.rarity, run.circle));
   exclude.add(def.id);
@@ -34,12 +39,15 @@ function rollArcana(run: RunState, rng: Rng, exclude: Set<string>): ShopItem | n
 
 function rollSigil(run: RunState, rng: Rng, exclude: Set<string>): ShopItem | null {
   const pool = SIGILS.filter((s) => {
+    if (!inPool(run, 'sigil', s.id)) return false;
     if (exclude.has(s.id)) return false;
     const own = run.sigils.find((o) => o?.id === s.id);
     return !own || own.level < MAX_LEVEL;
   });
   if (!pool.length) return null;
-  const def = rng.weighted(pool, (s) => rarityWeight(s.rarity, run.circle));
+  // Bereits besessene Siegel (Aufwertungen) seltener – verhindert Schneeball-Effekte bei kleinem Pool
+  const owned = (id: string) => run.sigils.some((o) => o?.id === id);
+  const def = rng.weighted(pool, (s) => rarityWeight(s.rarity, run.circle) * (owned(s.id) ? 0.3 : 1));
   exclude.add(def.id);
   return { kind: 'sigil', id: def.id, price: def.cost + computeStats(run, false).priceAdd, sold: false };
 }
@@ -67,12 +75,12 @@ const EDITION_PRICE: Record<Edition, number> = { folie: 2, holo: 3, poly: 5, neg
 export function generateShop(run: RunState, rng: Rng): ShopState {
   const stats = computeStats(run, false);
   const offers = rollCards(run, rng);
-  const pacts = PACTS.filter((p) => (run.pacts.find((o) => o.id === p.id)?.stacks ?? 0) < p.max);
+  const pacts = PACTS.filter((p) => inPool(run, 'pact', p.id) && (run.pacts.find((o) => o.id === p.id)?.stacks ?? 0) < p.max);
   if (pacts.length) {
     const p = rng.pick(pacts);
     offers.push({ kind: 'pact', id: p.id, price: p.cost + stats.priceAdd, sold: false });
   }
-  const potions = rng.shuffle([...POTIONS]).slice(0, 2);
+  const potions = rng.shuffle(POTIONS.filter((p) => inPool(run, 'potion', p.id))).slice(0, 2);
   for (const p of potions) {
     offers.push({ kind: 'potion', id: p.id, price: Math.max(1, p.cost + stats.priceAdd - stats.potionDiscount), sold: false });
   }

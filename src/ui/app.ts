@@ -8,6 +8,9 @@ import { loadMeta, loadRun, metaBonuses, recordChallenge, saveMeta, saveRun, typ
 import type { RunState } from '../core/types';
 import { WHEELS } from '../core/wheel';
 import { toast } from './popups';
+import { refName } from './components';
+import { discover, grantXp, type XpResult } from '../core/progress';
+import { xpForRun, type DiscoveryCtx } from '../content/unlocks';
 import { renderChallenge } from './screens/challenge';
 import { renderCodex } from './screens/codex';
 import { renderEnd } from './screens/end';
@@ -75,7 +78,7 @@ export class App {
   }
 
   startRun(opts: RunOptions = {}): void {
-    this.run = newRun(randomSeed(), metaBonuses(this.meta), opts);
+    this.run = newRun(randomSeed(), metaBonuses(this.meta), { pool: this.meta.insight.unlocked, ...opts });
     this.meta.runs++;
     this.saveAll();
     this.show('ritual');
@@ -115,6 +118,34 @@ export class App {
     );
   }
 
+  /** Prüft Kombo-Entdeckungen; neue Karten erscheinen sofort im Basar dieses Runs */
+  discoveries(ctx: DiscoveryCtx): void {
+    const found = discover(this.meta.insight, ctx);
+    if (!found.length) return;
+    for (const d of found) if (this.run?.pool && !this.run.pool.includes(d.item)) this.run.pool.push(d.item);
+    this.saveAll();
+    sfx.achievement();
+    found.forEach((d, i) =>
+      setTimeout(() => toast(`<b class="x">Entdeckt:</b> ${refName(d.item)} <span class="muted">– erscheint ab jetzt im Basar</span>`), 1200 + i * 2400),
+    );
+  }
+
+  /** Schreibt die Erkenntnis eines Runs gut (nur den noch nicht gutgeschriebenen Teil) */
+  grantRunXp(victory: boolean): XpResult | null {
+    const run = this.run;
+    if (!run || run.mode !== 'normal') return null;
+    const total = xpForRun(run, victory || run.endless);
+    const gain = total - (run.stats.xpGranted ?? 0);
+    if (gain <= 0) return null;
+    run.stats.xpGranted = total;
+    const res = grantXp(this.meta.insight, gain);
+    this.lastXp = res;
+    saveMeta(this.meta);
+    return res;
+  }
+
+  lastXp: XpResult | null = null;
+
   /** Einmalig beim Sieg über Luzifer: Stufen-Fortschritt und neue Kessel */
   recordVictory(): string[] {
     const run = this.run;
@@ -137,7 +168,8 @@ export class App {
       }
     }
     this.achievements({ run, victory: true });
-    saveMeta(this.meta);
+    this.grantRunXp(true);
+    this.saveAll();
     return news;
   }
 
@@ -153,6 +185,8 @@ export class App {
     if (run.stats.bestSpin.gte(Number.MAX_VALUE)) this.meta.infinity = true;
     if (run.mode !== 'normal' && run.dailyKey) recordChallenge(this.meta, run.dailyKey, run.circle, run.stats.bestSpin.toString());
     this.achievements({ run, runEnd: true });
+    if (run.phase === 'gameover') this.discoveries({ run, lost: true });
+    this.grantRunXp(run.phase === 'victory');
     saveRun(null);
     saveMeta(this.meta);
     return ash;

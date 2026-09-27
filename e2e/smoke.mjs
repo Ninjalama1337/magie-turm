@@ -164,6 +164,34 @@ async function scenario(browser, name, viewport) {
   await page.waitForSelector('.ritual .mode-tag');
   ok(true, 'Tägliche Herausforderung gestartet');
 
+  // Freischaltungen: Titel-Balken, versiegelte Karten, Enthüllung nach Niederlage
+  await page.evaluate(() => window.__app.show('title'));
+  await page.waitForSelector('.insight-badge');
+  ok(true, 'Erkenntnis-Balken auf dem Titel');
+  await page.evaluate(() => window.__app.show('codex'));
+  await page.waitForSelector('.codex-grid .tarot');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `e2e/shots/${name}-9b-codex-locked.png` });
+  const locked = await page.locator('.codex-grid .locked-card').count();
+  ok(locked > 20, `Versiegelte Arkana im Kodex (${locked})`);
+  await page.evaluate(() => {
+    const app = window.__app;
+    app.meta.insight.xp = 85;
+    app.startRun({});
+    const run = app.run;
+    run.target = run.target.mul(1e9);
+    run.spinsLeft = 1;
+    app.show('ritual');
+  });
+  await page.waitForSelector('.ritual');
+  await page.locator('[data-spin]').click();
+  await page.locator('[data-skip]').click();
+  await page.waitForSelector('.insight-panel', { timeout: 20000 });
+  await page.waitForTimeout(2500);
+  const items = await page.locator('.unlock-item').count();
+  ok(items >= 4, `Neue Karten nach Stufenaufstieg enthüllt (${items})`);
+  await page.screenshot({ path: `e2e/shots/${name}-10-unlocks.png`, fullPage: true });
+
   ok(errors.length === 0, `Keine Konsolenfehler${errors.length ? ': ' + errors.join(' | ') : ''}`);
   await page.close();
 }
