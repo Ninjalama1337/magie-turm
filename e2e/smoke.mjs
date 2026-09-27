@@ -121,11 +121,27 @@ async function scenario(browser, name, viewport) {
   await page.waitForSelector('.tut-box');
   await page.getByRole('button', { name: 'Überspringen' }).click();
   await page.evaluate(() => {
-    window.__app.run.souls = 40;
+    const run = window.__app.run;
+    run.souls = 40;
+    run.shop.event = { id: 'katze' };
+    run.arcana = run.arcana.slice(0, 3);
+    run.arcana.push({ uid: 950, id: 'narr', level: 3, state: {} }, { uid: 951, id: 'wagen', level: 3, state: {} });
     window.__app.show('shop');
   });
   await page.waitForTimeout(400);
   await page.screenshot({ path: `e2e/shots/${name}-6-shop.png`, fullPage: true });
+  ok((await page.locator('.event-card').count()) === 1, 'Begegnung im Basar');
+  await page.locator('.event-opt').first().click();
+  await page.waitForTimeout(150);
+  ok((await page.locator('.event-result').count()) === 1, 'Begegnung entschieden');
+  ok((await page.locator('.fusion-btn').count()) === 1, 'Fusion angeboten');
+  await page.locator('.fusion-btn').click();
+  await page.getByRole('button', { name: /Verschmelzen/ }).click();
+  await page.waitForTimeout(200);
+  ok(await page.evaluate(() => window.__app.run.arcana.some((a) => a.id === 'wilderritt')), 'Fusion durchgeführt');
+  await page.evaluate(() => (window.__app.run.souls = 40));
+  await page.evaluate(() => window.__app.show('shop'));
+  await page.waitForTimeout(200);
 
   const before = await page.locator('.offer.sold').count();
   await page.locator('.offer .btn.price:not(.no)').first().click();
@@ -141,6 +157,10 @@ async function scenario(browser, name, viewport) {
   await page.waitForSelector('.codex-grid .tarot');
   ok((await page.locator('.codex-grid .tarot').count()) === 50, '50 Arkana im Kodex');
   await page.screenshot({ path: `e2e/shots/${name}-7-codex.png` });
+  await page.locator('.tab', { hasText: 'Beschwörer' }).click();
+  ok((await page.locator('.codex-grid .demon-card').count()) >= 13, 'Beschwörer, Fusionen und Elemente im Kodex');
+  await page.locator('.tab', { hasText: 'Chronik' }).click();
+  ok((await page.locator('.chronik-stats').count()) === 1, 'Chronik im Kodex');
 
   // Mini-Rad
   await page.evaluate(() => {

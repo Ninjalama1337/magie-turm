@@ -88,7 +88,17 @@ export type ShopItem =
   | { kind: 'pact'; id: string; price: number; sold: boolean }
   | { kind: 'enchant'; enchant: Enchant; pocket: number; price: number; sold: boolean };
 
+/** Dauerhafte Segen aus Ereignissen (wirken bis zum Run-Ende) */
+export interface Boons {
+  baseFluch?: number;
+  lapGlut?: number;
+  ghostCap?: number;
+  luck?: number;
+}
+
 export interface ShopState {
+  /** Begegnung in diesem Basar; result = bereits entschieden */
+  event?: { id: string; result?: string };
   offers: ShopItem[];
   rerollCost: number;
   freeRerolls: number;
@@ -130,6 +140,10 @@ export interface RunState {
   pool?: string[];
   /** Gewählter Beschwörer (undefined = Der Wanderer) */
   hero?: string;
+  /** Segen aus Ereignissen */
+  boons?: Boons;
+  /** Einmalige Änderungen für das nächste Ritual (Ereignisse) */
+  nextRitual?: { spinsAdd?: number; targetMult?: number };
   seed: number;
   rngState: number;
   circle: number;

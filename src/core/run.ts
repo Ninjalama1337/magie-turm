@@ -150,6 +150,12 @@ export function startRitual(run: RunState): void {
   run.demon = run.ritual === 2 ? run.circleDemon : null;
   run.target = ritualTarget(run, run.circle, run.ritual);
   run.spinsLeft = computeStats(run).spins;
+  // Einmalige Folgen von Ereignissen
+  if (run.nextRitual) {
+    run.target = run.target.mul(run.nextRitual.targetMult ?? 1).floor();
+    run.spinsLeft = Math.max(1, run.spinsLeft + (run.nextRitual.spinsAdd ?? 0));
+    delete run.nextRitual;
+  }
   run.ritualScore = new Decimal(0);
   run.phase = 'ritual';
   run.shop = null;

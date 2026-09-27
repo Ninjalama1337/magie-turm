@@ -67,6 +67,7 @@ export function showSettings(app: App): void {
     <label class="set-row"><span>Musik</span><input type="range" min="0" max="1" step="0.05" data-k="music" value="${s.music}"></label>
     <label class="set-row"><span>Effekte</span><input type="range" min="0" max="1" step="0.05" data-k="sfx" value="${s.sfx}"></label>
     <label class="set-row"><span>Bildschirmwackeln</span><input type="checkbox" data-k="shake" ${s.shake ? 'checked' : ''}></label>
+    <label class="set-row"><span>Vibration</span><input type="checkbox" data-k="haptics" ${s.haptics ? 'checked' : ''}></label>
     <label class="set-row"><span>Reduzierte Effekte</span><input type="checkbox" data-k="reducedFx" ${s.reducedFx ? 'checked' : ''}></label>
     <label class="set-row"><span>Standard-Tempo</span><select data-k="speed">${[1, 2, 4].map((v) => `<option value="${v}" ${app.meta.speed === v ? 'selected' : ''}>${v}×</option>`).join('')}</select></label>
     <button class="btn ghost small" data-reset-tut>Tutorial erneut zeigen</button>
@@ -75,7 +76,10 @@ export function showSettings(app: App): void {
     const t = e.target as HTMLInputElement;
     const k = t.dataset.k;
     if (k === 'music' || k === 'sfx') s[k] = Number(t.value);
-    else if (k === 'shake' || k === 'reducedFx') s[k] = t.checked;
+    else if (k === 'shake' || k === 'reducedFx' || k === 'haptics') {
+      s[k] = t.checked;
+      if (k === 'haptics' && t.checked) sfx.buzz(30);
+    }
     else if (k === 'sound') app.meta.sound = t.checked;
     else if (k === 'speed') app.meta.speed = Number(t.value);
     app.applySettings();

@@ -69,6 +69,13 @@ export function computeStats(run: RunState, withDemon = true): Stats {
   s.startGhosts += m.startGhosts;
   s.luck *= m.luck;
   heroOf(run).mod?.(s);
+  const bo = run.boons;
+  if (bo) {
+    s.baseFluch += bo.baseFluch ?? 0;
+    s.lapGlut += bo.lapGlut ?? 0;
+    s.ghostCap += bo.ghostCap ?? 0;
+    s.luck *= bo.luck ?? 1;
+  }
   wheelOf(run).mod?.(s);
   applyStake(s, run.stake ?? 1);
   for (const id of run.omens ?? []) OMEN_BY_ID[id]?.mod?.(s);

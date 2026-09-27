@@ -84,11 +84,40 @@ export interface MetaState {
   dailies: Record<string, DailyRecord>;
   settings: Settings;
   insight: Insight;
+  /** Letzte Runs (neueste zuerst) */
+  history: RunRecord[];
+  /** Summen über alle Runs */
+  totals: Totals;
   /** Gekaufte Grimoire-Talente */
   talents: string[];
   /** Asche, die beim Umstieg auf den Talentbaum erstattet wurde (für einen Hinweis) */
   legacyRefund?: number;
 }
+
+export interface RunRecord {
+  t: number;
+  hero: string;
+  wheel: string;
+  stake: number;
+  mode: string;
+  circle: number;
+  victory: boolean;
+  rituals: number;
+  bestSpin: string;
+  arcana: string[];
+  sigils: string[];
+  cause: string;
+}
+
+export interface Totals {
+  spins: number;
+  rituals: number;
+  hits: number;
+  maxLaps: number;
+  maxGhosts: number;
+}
+
+export const HISTORY_MAX = 25;
 
 /** Erkenntnis-Fortschritt: freigeschalteter Karten-Pool */
 export interface Insight {
@@ -107,6 +136,7 @@ export interface Settings {
   sfx: number;
   shake: boolean;
   reducedFx: boolean;
+  haptics: boolean;
 }
 
 export const DEFAULT_META_STATE: MetaState = {
@@ -125,9 +155,11 @@ export const DEFAULT_META_STATE: MetaState = {
   wheelStakes: {},
   achievements: [],
   dailies: {},
-  settings: { music: 0.6, sfx: 0.8, shake: true, reducedFx: false },
+  settings: { music: 0.6, sfx: 0.8, shake: true, reducedFx: false, haptics: true },
   insight: { xp: 0, unlocked: [...STARTER] },
   talents: [],
+  history: [],
+  totals: { spins: 0, rituals: 0, hits: 0, maxLaps: 0, maxGhosts: 0 },
 };
 
 /** Grimoire-Boni aus den gekauften Talenten */
@@ -163,6 +195,8 @@ export function loadMeta(): MetaState {
     if (!raw) return structuredClone(DEFAULT_META_STATE);
     const m = { ...structuredClone(DEFAULT_META_STATE), ...JSON.parse(raw) } as MetaState;
     m.settings = { ...DEFAULT_META_STATE.settings, ...m.settings };
+    m.totals = { ...DEFAULT_META_STATE.totals, ...m.totals };
+    if (!Array.isArray(m.history)) m.history = [];
     // Ältere Spielstände starten mit dem kleinen Start-Pool neu
     if (!m.insight?.unlocked) m.insight = { xp: 0, unlocked: [...STARTER] };
     // Umstieg auf den Talentbaum: alte Segnungen werden erstattet
@@ -235,9 +269,37 @@ export function parseSave(code: string): { meta: MetaState; run: RunState | null
     if (!data.meta || typeof data.meta.ash !== 'number' || !Array.isArray(data.meta.talents)) return null;
     const meta = { ...structuredClone(DEFAULT_META_STATE), ...data.meta } as MetaState;
     meta.settings = { ...DEFAULT_META_STATE.settings, ...meta.settings };
+    meta.totals = { ...DEFAULT_META_STATE.totals, ...meta.totals };
+    if (!Array.isArray(meta.history)) meta.history = [];
     const run = data.run ? deserializeRun(data.run) : null;
     return { meta, run };
   } catch {
     return null;
   }
+}
+
+/** Trägt einen beendeten Run in Chronik und Summen ein */
+export function recordRun(meta: MetaState, run: RunState, cause: string): RunRecord {
+  const rec: RunRecord = {
+    t: Date.now(),
+    hero: run.hero ?? 'wanderer',
+    wheel: run.wheel,
+    stake: run.stake,
+    mode: run.mode,
+    circle: run.circle,
+    victory: run.phase === 'victory' || run.endless,
+    rituals: run.stats.ritualsWon,
+    bestSpin: run.stats.bestSpin.toString(),
+    arcana: run.arcana.map((a) => a.id),
+    sigils: run.sigils.filter((s): s is NonNullable<typeof s> => !!s).map((s) => s.id),
+    cause,
+  };
+  meta.history = [rec, ...meta.history].slice(0, HISTORY_MAX);
+  const t = meta.totals;
+  t.spins += run.stats.spins;
+  t.rituals += run.stats.ritualsWon;
+  t.hits += run.stats.betsHit;
+  t.maxLaps = Math.max(t.maxLaps, run.stats.maxLaps);
+  t.maxGhosts = Math.max(t.maxGhosts, run.stats.maxGhosts);
+  return rec;
 }

@@ -1,6 +1,7 @@
 import { ARCANA_BY_ID } from '../content/arcana';
 import { DEMON_BY_ID, ENCHANT_BY_ID } from '../content/demons';
 import { bonds, ELEMENTS, elementOf, resonance } from '../content/elements';
+import { FUSION_LEVEL, recipesWith } from '../content/fusions';
 import { PACT_BY_ID } from '../content/pacts';
 import { SIGIL_BY_ID } from '../content/sigils';
 import { SUIT_NAME } from '../content/arcana-minor';
@@ -73,7 +74,13 @@ export function arcanaDetail(id: string, inst?: ArcanaInst, level = 1, edition?:
     </div>
     <p class="detail-desc">${def.desc(l, inst)}</p>
     ${ed ? `<p class="detail-ed"><b class="x">${EDITION_LABEL[ed]}:</b> ${EDITION_DESC[ed]}</p>` : ''}
-    ${l < 5 ? `<p class="detail-next">Nächste Stufe: ${def.desc(l + 1, inst)}</p>` : ''}`;
+    ${l < 5 ? `<p class="detail-next">Nächste Stufe: ${def.desc(l + 1, inst)}</p>` : ''}
+    ${recipesWith(id)
+      .map((r) => {
+        const other = ARCANA_BY_ID[r.a === id ? r.b : r.a];
+        return `<p class="detail-fusion">${glyphSvg('potion')} <b>Fusion:</b> mit <b>${other.name}</b> (beide Stufe ${FUSION_LEVEL}) → <b class="leg">${ARCANA_BY_ID[r.result].name}</b></p>`;
+      })
+      .join('')}`;
 }
 
 export function sigilTile(id: string, opts: { inst?: SigilInst; level?: number } = {}): HTMLDivElement {

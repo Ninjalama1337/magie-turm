@@ -46,6 +46,11 @@ Jedes Siegel gehört zu einem **Element** (Flamme, Blut, Sturm, Geist, Gold, Ark
 - **Resonanz:** Liegt ein Siegel direkt neben einem Siegel desselben Elements, wirkt es eine Stufe stärker.
 - **Bünde:** Mehrere Siegel eines Elements auf freien Rauten schalten Boni frei, zum Beispiel 3× Flamme für +3 Glut pro Runde oder 5× Flamme für ×1,5 Glut am Drehende.
 
+### Begegnungen, Fusionen und Chronik
+- **Begegnungen:** In etwa 40 % der Basare wartet eine Begegnung mit einer Entscheidung, etwa der Blutaltar (eine Drehung weniger im nächsten Ritual, dafür dauerhaft mehr Fluch) oder die schwarze Katze (Münzwurf um Seelen). Es gibt 9 Begegnungen, in Herausforderungen keine.
+- **Arkana-Fusion:** Zwei passende Arkana auf Stufe 3 verschmelzen im Basar zu einer legendären Karte, zum Beispiel Sonne + Mond zur *Sonnenfinsternis*. Es gibt 6 Rezepte; sie stehen in den Kartendetails und im Kodex.
+- **Chronik:** Der Kodex zeigt die letzten 25 Runs mit Beschwörer, Deck und Todesursache sowie Gesamtstatistiken.
+
 ### Kessel & Höllenstufen
 | Kessel | Besonderheit |
 |---|---|
@@ -70,6 +75,7 @@ Täglich und wöchentlich gibt es einen festen Seed mit Kessel, Stufe und Omen, 
 ### Weitere Systeme
 - **Editionen:** Arkana erscheinen im Basar manchmal als Folie, Holo, Polychrom oder Negativ.
 - **Tränke:** Einmal-Effekte vor einer Drehung oder im Basar.
+- **Vibration:** Auf dem Handy vibriert das Gerät bei Treffern, Siegen und Rekorden. Das lässt sich in den Einstellungen abschalten.
 - **Spielstand-Export:** In den Einstellungen lässt sich der komplette Fortschritt als Code exportieren und auf einem anderen Gerät oder nach einer Neuinstallation wieder importieren.
 - **Bedienung:** Drag & Drop, Hover-Tooltips am Desktop, geführtes Tutorial, Einstellungen (Musik, Effekte, Wackeln, reduzierte Effekte).
 

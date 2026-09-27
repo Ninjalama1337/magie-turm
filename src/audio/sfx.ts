@@ -8,6 +8,18 @@ class Sfx {
   private heat = 0;
   private last: Record<string, number> = {};
   enabled = true;
+  /** Vibration auf dem Handy (unabhängig vom Ton) */
+  haptics = true;
+
+  /** Kurze Vibration; nur auf Geräten mit Vibrationsmotor */
+  buzz(pattern: number | number[]): void {
+    if (!this.haptics) return;
+    try {
+      navigator.vibrate?.(pattern);
+    } catch {
+      /* nicht unterstützt */
+    }
+  }
 
   private ensure(): AudioContext | null {
     if (!this.enabled) return null;
@@ -102,11 +114,13 @@ class Sfx {
   }
 
   record(): void {
+    this.buzz([40, 60, 40, 60, 120]);
     [0, 7, 12, 19, 24].forEach((s, i) => this.tone(261.6 * Math.pow(2, s / 12), 0.9, 'triangle', 0.07, 1, i * 0.08));
     this.noise(1.2, 0.2, 4000, 0.5);
   }
 
   achievement(): void {
+    this.buzz([30, 50, 30]);
     [0, 4, 7, 11, 14].forEach((s, i) => this.tone(523 * Math.pow(2, s / 12), 0.5, 'sine', 0.05, 1, i * 0.06));
   }
 
@@ -149,6 +163,7 @@ class Sfx {
   }
 
   hit(): void {
+    this.buzz(25);
     [0, 4, 7, 12].forEach((s, i) => this.tone(330 * Math.pow(2, s / 12), 0.4, 'triangle', 0.06, 1, i * 0.07));
   }
 
@@ -157,6 +172,7 @@ class Sfx {
   }
 
   score(big: boolean): void {
+    this.buzz(big ? [20, 40, 60] : 12);
     this.noise(0.5, big ? 0.35 : 0.2, 300, 0.7);
     this.tone(big ? 55 : 82, 0.8, 'sine', 0.3, 0.5);
   }
@@ -167,15 +183,18 @@ class Sfx {
   }
 
   buy(): void {
+    this.buzz(8);
     this.tone(523, 0.1, 'triangle', 0.07);
     this.tone(784, 0.16, 'triangle', 0.06, 1, 0.08);
   }
 
   win(): void {
+    this.buzz([40, 80, 40, 80, 160]);
     [0, 3, 7, 10, 12, 15].forEach((s, i) => this.tone(220 * Math.pow(2, s / 12), 0.6, 'triangle', 0.07, 1, i * 0.09));
   }
 
   lose(): void {
+    this.buzz([200, 100, 300]);
     [0, -3, -6, -12].forEach((s, i) => this.tone(220 * Math.pow(2, s / 12), 0.8, 'sawtooth', 0.05, 0.9, i * 0.25));
   }
 
