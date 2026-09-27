@@ -1,33 +1,29 @@
 apply plugin: 'com.android.application'
 
-def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-}
-
 android {
-    namespace "de.ninjalama.magieturm"
-    compileSdk rootProject.ext.compileSdkVersion
+    namespace = "de.ninjalama.teufelsrad"
+    compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "de.ninjalama.magieturm"
+        applicationId "de.ninjalama.teufelsrad"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.1"
+        versionCode ((System.getenv("VERSION_CODE") ?: "1") as Integer)
+        versionName System.getenv("VERSION_NAME") ?: "0.2.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
-            ignoreAssetsPattern '!.svn:!.git:!.ds_store:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
     signingConfigs {
         release {
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile file(keystoreProperties['storeFile'])
-            storePassword keystoreProperties['storePassword']
+            // Alle Builds werden identisch signiert, damit Updates drüber installierbar sind.
+            // Für mehr Sicherheit: Keystore + Passwörter als GitHub-Secrets setzen (siehe README).
+            storeFile file(System.getenv("KEYSTORE_FILE") ?: "../teufelsrad.jks")
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: "teufelsrad2026"
+            keyAlias System.getenv("KEY_ALIAS") ?: "teufelsrad"
+            keyPassword System.getenv("KEY_PASSWORD") ?: "teufelsrad2026"
         }
     }
     buildTypes {
@@ -35,9 +31,9 @@ android {
             signingConfig signingConfigs.release
         }
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
         }
     }
 }

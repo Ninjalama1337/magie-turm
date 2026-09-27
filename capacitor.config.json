@@ -1,8 +1,10 @@
 {
-  "appId": "de.ninjalama.magieturm",
-  "appName": "Magie-Turm",
-  "webDir": "www",
+  "appId": "de.ninjalama.teufelsrad",
+  "appName": "Teufelsrad",
+  "webDir": "dist",
+  "backgroundColor": "#0b0607",
   "android": {
-    "allowMixedContent": false
+    "allowMixedContent": false,
+    "backgroundColor": "#0b0607"
   }
 }
