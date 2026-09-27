@@ -1,5 +1,6 @@
 import Decimal from 'break_eternity.js';
 import { SIGIL_BY_ID } from '../content/sigils';
+import { fullMeta } from '../content/talents';
 import { addFluch, addGlut, addSouls, info, log, MAX_LAPS_PER_BALL, mulFluch, roll, spawnGhost } from './effects';
 import { fireAll, hasArcana } from './hooks';
 import { Rng } from './rng';
@@ -349,6 +350,9 @@ export function simulateSpin(run: RunState, bet: Bet, rng: Rng, opts: SpinOption
     info(ctx, `×${buffs.glutMult} Glut`, { k: 'potion' }, 0, 'glut');
   }
   if (buffs.fluchMult > 1) mulFluch(ctx, buffs.fluchMult, { k: 'potion' });
+  const meta = fullMeta(run.meta);
+  if (ctx.firstSpin && meta.firstSpinFluch > 1) mulFluch(ctx, meta.firstSpinFluch, { k: 'pact', id: 'grimoire' });
+  if (ctx.lastSpin && meta.lastSpinFluch > 1) mulFluch(ctx, meta.lastSpinFluch, { k: 'pact', id: 'grimoire' });
   if (stats.endFluch > 1) mulFluch(ctx, stats.endFluch, { k: 'pact', id: 'verdammnis' });
   if (demon?.mods.fluchFactor) mulFluch(ctx, demon.mods.fluchFactor, { k: 'demon' });
   if (demon?.mods.glutFactor) {

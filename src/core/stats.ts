@@ -3,6 +3,7 @@ import { DEMON_BY_ID } from '../content/demons';
 import { OMEN_BY_ID } from '../content/omens';
 import { PACT_BY_ID } from '../content/pacts';
 import { applyStake } from '../content/stakes';
+import { fullMeta } from '../content/talents';
 import type { DemonDef, RunState, Stats } from './types';
 import { wheelOf } from './wheel';
 
@@ -48,9 +49,22 @@ export function currentDemon(run: RunState): DemonDef | null {
 
 export function computeStats(run: RunState, withDemon = true): Stats {
   const s: Stats = { ...BASE_STATS };
-  s.lapGlut += run.meta.lapGlut;
-  s.freeRerolls += run.meta.freeReroll;
-  s.shopArcana += run.meta.extraArcanaOffer;
+  const m = fullMeta(run.meta);
+  s.lapGlut += m.lapGlut;
+  s.freeRerolls += m.freeReroll;
+  s.shopArcana += m.extraArcanaOffer;
+  s.baseFluch += m.baseFluch;
+  s.endFluch *= m.endFluch;
+  s.rewardAdd += m.rewardAdd;
+  s.interestCap += m.interestCap;
+  s.potionSlots += m.potionSlots;
+  s.priceAdd += m.priceAdd;
+  s.tempo += m.tempo;
+  s.friction *= m.friction;
+  s.frictionGrowth *= m.frictionGrowth;
+  s.ghostCap += m.ghostCap;
+  s.startGhosts += m.startGhosts;
+  s.luck *= m.luck;
   wheelOf(run).mod?.(s);
   applyStake(s, run.stake ?? 1);
   for (const id of run.omens ?? []) OMEN_BY_ID[id]?.mod?.(s);

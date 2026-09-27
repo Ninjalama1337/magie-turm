@@ -18,7 +18,7 @@ Ein okkulter **Roulette-Roguelite-Deckbuilder** für Browser und Handy (PWA), in
 
 Ein Run führt durch die **9 Höllenkreise** mit je drei Ritualen: Klein, Groß und einem **Dämon**, der die Regeln verdreht. Im neunten Kreis wartet Luzifer. Danach geht es im **Jenseits** endlos weiter, mit super-exponentiell wachsenden Zielen (Zahlen über `1e308` dank `break_eternity.js`).
 Zwischen den Ritualen kaufst du im **Basar** ein: Arkana, Siegel (erneuter Kauf erhöht die Stufe), Pakte und Fach-Verzauberungen. Außerdem kannst du Rauten freilegen und Arkana aufwerten.
-Mit **Asche** aus beendeten Runs schaltest du im **Grimoire** dauerhafte Boni frei.
+Mit **Asche** aus beendeten Runs und Erfolgen wächst im **Grimoire** ein **Talentbaum** mit drei Pfaden zu je 8 Knoten: *Flamme* (Glut und Fluch), *Gold* (Seelen, Basar, Tränke) und *Kugel* (Tempo, Rauten, Irrlichter). Späte Knoten und die Schlusssteine sind ein Langzeitziel (insgesamt 1.980 Asche). Die alten Grimoire-Segnungen werden beim Update als Asche erstattet.
 
 **Inhalt (v0.2):**
 - 50 Arkana: 25 Große, 24 Kleine Arkana in 4 Farben und Der Spieler
@@ -69,7 +69,7 @@ npm run apk        # Build + Capacitor-Sync + APK (benötigt Android-SDK)
 ### Android
 `android/` ist ein Capacitor-Projekt (`de.ninjalama.teufelsrad`, Hochformat). Alle Builds werden mit `android/teufelsrad.jks` identisch signiert, damit Updates drüber installierbar sind. Die App zeigt ein Banner, sobald auf GitHub ein neueres Release liegt.
 
-> **Sicherheit:** Der Keystore liegt wie beim Vorgängerprojekt im Repo. Ist das Repo öffentlich, lege stattdessen die Secrets `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` und `ANDROID_KEY_PASSWORD` an. Die CI nutzt sie automatisch, und der Repo-Keystore kann dann entfernt werden.
+> **Sicherheit:** Der Keystore liegt wie beim Vorgängerprojekt im Repo; das ist nur in Ordnung, solange das Repo privat bleibt. Sollte es je öffentlich werden, lege stattdessen die Secrets `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` und `ANDROID_KEY_PASSWORD` an. Die CI nutzt sie automatisch, und der Repo-Keystore kann dann entfernt werden.
 
 ### Architektur
 
@@ -90,5 +90,7 @@ Simulation und Darstellung sind strikt getrennt: `simulateSpin()` berechnet das 
 ## CI/CD
 
 Jeder Push und jeder PR durchläuft Typecheck, Unit-Tests, Balance-Simulation, Build und E2E. Danach baut ein zweiter Job die signierte **APK** als Artifact.
-- **Tag `v*`:** Die APK wird zusätzlich als **GitHub Release** (`teufelsrad.apk`) veröffentlicht.
-- **Push auf `main`:** Die Web-Version wird auf **GitHub Pages** veröffentlicht. Dafür in den Repo-Einstellungen unter *Pages* die Quelle „GitHub Actions“ wählen.
+- **Jeder Push auf `main`** (also jeder gemergte PR) erstellt automatisch ein **GitHub Release** `v2.0.<Build-Nummer>` mit der signierten `teufelsrad.apk` und einem **Changelog**. Den Changelog erzeugt `scripts/changelog.mjs` aus den Commits seit dem letzten Release, gruppiert nach Präfix (`feat` → Neu, `fix` → Fehlerbehebungen, `perf`/`refactor`/`balance` → Balance, `ci`/`build`/`chore`/`docs`/`test` → Technik).
+- **Tag `v*`** (z. B. `v2.1.0`): Das Release bekommt genau diese Version. Für einen Major- oder Minor-Sprung erhöhst du die Version in `package.json`. Die Build-Nummer hängt immer an `Major.Minor` aus `package.json`.
+- Die Versionsnummer landet in der App (`APP_VERSION`) und in der APK (`versionName`), damit das Update-Banner korrekt vergleicht. Die Zählung beginnt bei 2.x, weil es aus dem Vorgängerprojekt schon die Releases v1.0.0 und v1.1.0 gibt.
+- Das Repo bleibt privat, es wird nichts veröffentlicht. Die Web-Version läuft lokal über `npm run dev` bzw. `npm run preview`, die Android-App über die APK.

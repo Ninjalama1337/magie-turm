@@ -64,6 +64,21 @@ export interface MetaBonuses {
   lapGlut: number;
   freeReroll: number;
   extraArcanaOffer: number;
+  baseFluch: number;
+  firstSpinFluch: number;
+  lastSpinFluch: number;
+  endFluch: number;
+  rewardAdd: number;
+  interestCap: number;
+  potionSlots: number;
+  startRare: number;
+  priceAdd: number;
+  tempo: number;
+  friction: number;
+  frictionGrowth: number;
+  ghostCap: number;
+  startGhosts: number;
+  luck: number;
 }
 
 export type ShopItem =

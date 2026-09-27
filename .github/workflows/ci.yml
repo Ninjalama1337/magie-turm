@@ -9,12 +9,11 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Auf main nie abbrechen – sonst gingen Releases verloren
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   web:
@@ -41,16 +40,14 @@ jobs:
         with:
           name: e2e-screenshots
           path: e2e/shots
-      - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main'
-        with:
-          path: dist
 
   android:
     runs-on: ubuntu-latest
     needs: web
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # vollständige Historie + Tags für den Changelog
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -64,6 +61,19 @@ jobs:
           # Das veraltete Paket 'tools' existiert in cmdline-tools 16 nicht mehr
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
       - run: npm ci
+      - name: Version bestimmen
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            # Major.Minor aus package.json, Patch = fortlaufende Build-Nummer
+            BASE=$(node -p "require('./package.json').version.split('.').slice(0, 2).join('.')")
+            VERSION="$BASE.${{ github.run_number }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Version: $VERSION"
       - name: Web-Build + Capacitor-Sync
         run: npm run build && npx cap sync android
       - name: Signatur (Secrets überschreiben den Repo-Keystore, falls gesetzt)
@@ -80,7 +90,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           VERSION_CODE: ${{ github.run_number }}
-          VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '0.2.0-dev' }}
+          VERSION_NAME: ${{ steps.ver.outputs.version }}
         run: |
           # leere Secrets nicht als Passwort durchreichen
           [ -z "$KEYSTORE_PASSWORD" ] && unset KEYSTORE_PASSWORD
@@ -92,32 +102,16 @@ jobs:
         with:
           name: teufelsrad-apk
           path: teufelsrad.apk
-      - name: GitHub Release (bei Tag)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Changelog erzeugen
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        run: node scripts/changelog.mjs "${{ steps.ver.outputs.version }}" | tee release-notes.md
+      - name: GitHub Release (jeder Push auf main und jeder v*-Tag)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: Teufelsrad v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          body_path: release-notes.md
           files: teufelsrad.apk
-          generate_release_notes: true
-
-  deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: web
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      # Aktiviert Pages (Quelle: GitHub Actions), falls noch nicht geschehen.
-      # Fehlt die Berechtigung dazu, bleibt main grün und es gibt einen Hinweis.
-      - id: pages
-        uses: actions/configure-pages@v5
-        continue-on-error: true
-        with:
-          enablement: true
-      - name: Hinweis, falls GitHub Pages nicht aktiv ist
-        if: steps.pages.outcome != 'success'
-        run: |
-          echo "::warning title=GitHub Pages nicht aktiv::Bitte unter Settings → Pages die Quelle 'GitHub Actions' wählen. Danach wird die Web-Version bei jedem Push auf main veröffentlicht."
-      - id: deployment
-        if: steps.pages.outcome == 'success'
-        uses: actions/deploy-pages@v4
+          make_latest: true

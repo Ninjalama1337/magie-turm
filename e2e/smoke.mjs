@@ -164,6 +164,18 @@ async function scenario(browser, name, viewport) {
   await page.waitForSelector('.ritual .mode-tag');
   ok(true, 'Tägliche Herausforderung gestartet');
 
+  // Grimoire-Talentbaum
+  await page.evaluate(() => {
+    window.__app.meta.ash = 40;
+    window.__app.show('grimoire');
+  });
+  await page.waitForSelector('.talent-tree');
+  ok((await page.locator('.talent').count()) === 24, '24 Talente im Grimoire');
+  await page.locator('.talent.ready').first().click();
+  await page.waitForTimeout(200);
+  ok((await page.locator('.talent.owned').count()) === 1, 'Talent gekauft');
+  await page.screenshot({ path: `e2e/shots/${name}-9c-grimoire.png`, fullPage: true });
+
   // Freischaltungen: Titel-Balken, versiegelte Karten, Enthüllung nach Niederlage
   await page.evaluate(() => window.__app.show('title'));
   await page.waitForSelector('.insight-badge');
