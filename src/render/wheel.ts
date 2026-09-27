@@ -1,7 +1,7 @@
 import { SIGIL_BY_ID } from '../content/sigils';
 import { ENCHANT_BY_ID } from '../content/demons';
 import type { Enchant, SigilInst } from '../core/types';
-import { colorOf, POCKET_COUNT, WHEEL_ORDER, wheelIndex } from '../core/wheel';
+import { colorOf, EURO, pocketLabel, wheelIndex, type WheelDef } from '../core/wheel';
 import { drawGlyph } from '../ui/icons';
 import { SIGIL_COLOR } from './colors';
 import { Particles } from './particles';
@@ -16,7 +16,6 @@ export interface VBall {
 }
 
 const TAU = Math.PI * 2;
-const STEP = TAU / POCKET_COUNT;
 export const SLOT_COUNT = 8;
 
 export function slotAngle(i: number): number {
@@ -28,6 +27,7 @@ export class WheelView {
   private ctx: CanvasRenderingContext2D;
   size = 300;
   private dpr = 1;
+  wheel: WheelDef = EURO;
   wheelAngle = 0;
   wheelSpeed = -0.32;
   balls: VBall[] = [];
@@ -40,6 +40,7 @@ export class WheelView {
   pocketGlow: { n: number; t: number } | null = null;
   particles = new Particles();
   shake = 0;
+  shakeScale = 1;
   hot = 0;
   frameHooks = new Set<(dt: number) => void>();
   private staticLayer: HTMLCanvasElement | null = null;
@@ -96,8 +97,12 @@ export class WheelView {
     this.ringKey = '';
   }
 
+  get step(): number {
+    return TAU / this.wheel.order.length;
+  }
+
   pocketAngle(n: number): number {
-    return this.wheelAngle - Math.PI / 2 + wheelIndex(n) * STEP;
+    return this.wheelAngle - Math.PI / 2 + wheelIndex(n, this.wheel) * this.step;
   }
 
   slotPos(i: number): { x: number; y: number } {
@@ -109,6 +114,18 @@ export class WheelView {
   toPage(p: { x: number; y: number }): { x: number; y: number } {
     const r = this.canvas.getBoundingClientRect();
     return { x: r.left + (p.x / this.size) * r.width, y: r.top + (p.y / this.size) * r.height };
+  }
+
+  /** Raute unter einer Seitenkoordinate (oder −1) */
+  slotAt(clientX: number, clientY: number): number {
+    const r = this.canvas.getBoundingClientRect();
+    const x = ((clientX - r.left) / r.width) * this.size;
+    const y = ((clientY - r.top) / r.height) * this.size;
+    for (let i = 0; i < SLOT_COUNT; i++) {
+      const p = this.slotPos(i);
+      if (Math.hypot(p.x - x, p.y - y) < this.R * 0.1) return i;
+    }
+    return -1;
   }
 
   pocketPos(n: number, radius = this.restR): { x: number; y: number } {
@@ -262,11 +279,13 @@ export class WheelView {
     g.arc(0, R * 0.01, oOut + R * 0.01, 0, TAU);
     g.fill();
 
-    for (let i = 0; i < POCKET_COUNT; i++) {
-      const n = WHEEL_ORDER[i];
+    const STEP = this.step;
+    const count = this.wheel.order.length;
+    for (let i = 0; i < count; i++) {
+      const n = this.wheel.order[i];
       const a0 = -Math.PI / 2 + (i - 0.5) * STEP;
       const a1 = a0 + STEP;
-      const col = colorOf(n);
+      const col = colorOf(n, this.wheel);
       const base = col === 'red' ? '#8e1224' : col === 'black' ? '#141012' : '#2f0b4a';
       const hi = col === 'red' ? '#c11f37' : col === 'black' ? '#2a2326' : '#6c1fa0';
       const grad = g.createRadialGradient(0, 0, oIn, 0, 0, oOut);
@@ -314,17 +333,17 @@ export class WheelView {
       g.save();
       g.rotate(am + Math.PI / 2);
       g.fillStyle = col === 'hell' ? '#ffb347' : '#f1e4c8';
-      g.font = `600 ${Math.max(7, R * 0.052)}px Cinzel, serif`;
+      g.font = `600 ${Math.max(7, R * 0.052 * Math.min(1.5, Math.sqrt(37 / count)))}px Cinzel, serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText(String(n), 0, -(oOut + oIn) / 2);
+      g.fillText(pocketLabel(n), 0, -(oOut + oIn) / 2);
       g.restore();
     }
 
     // Stege
     g.strokeStyle = '#c9a25a';
     g.lineWidth = Math.max(1, R * 0.006);
-    for (let i = 0; i < POCKET_COUNT; i++) {
+    for (let i = 0; i < count; i++) {
       const a = -Math.PI / 2 + (i - 0.5) * STEP;
       g.beginPath();
       g.moveTo(Math.cos(a) * pIn, Math.sin(a) * pIn);
@@ -395,13 +414,13 @@ export class WheelView {
     const R = this.R;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.clearRect(0, 0, this.size, this.size);
-    if (this.shake > 0) {
-      const s = this.shake * R * 0.03;
+    if (this.shake > 0 && this.shakeScale > 0) {
+      const s = this.shake * R * 0.03 * this.shakeScale;
       g.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
     }
     if (this.staticLayer) g.drawImage(this.staticLayer, 0, 0, this.size, this.size);
 
-    const key = JSON.stringify(this.enchants) + this.size;
+    const key = JSON.stringify(this.enchants) + this.size + this.wheel.id;
     if (key !== this.ringKey) {
       this.ringLayer = this.renderRing();
       this.ringKey = key;
@@ -435,6 +454,7 @@ export class WheelView {
     const g = this.ctx;
     const R = this.R;
     const ang = this.pocketAngle(n);
+    const STEP = this.step;
     g.save();
     g.translate(R, R);
     g.globalCompositeOperation = 'lighter';

@@ -14,6 +14,7 @@ import {
   unlockSlot,
   upgradeArcana,
   upgradePrice,
+  usePotion,
 } from '../src/core/shop';
 import { isBetAllowed } from '../src/core/spin';
 import { computeStats } from '../src/core/stats';
@@ -23,6 +24,8 @@ const args = Object.fromEntries(process.argv.slice(2).map((a) => a.split('=')));
 const RUNS = Number(args.runs ?? 300);
 const BOT = args.bot ?? 'smart';
 const MAX_CIRCLE = Number(args.max ?? 14);
+const WHEEL = args.wheel ?? 'euro';
+const STAKE = Number(args.stake ?? 1);
 
 const RARITY_SCORE = { common: 1, uncommon: 2, rare: 3, legendary: 4 };
 
@@ -53,6 +56,7 @@ function shopTurn(run: RunState): void {
       if (!canBuy(run, o).ok) continue;
       if (o.kind === 'enchant' && run.souls < o.price + 6) continue;
       if (o.kind === 'pact' && run.souls < o.price + 3) continue;
+      if (o.kind === 'potion' && run.souls < o.price + 10) continue;
       buy(run, i);
     }
     if (freeSigilSlot(run) < 0 && run.sigilUnlocked < 8 && run.souls >= unlockPrice(run) + 3) unlockSlot(run);
@@ -66,8 +70,9 @@ function shopTurn(run: RunState): void {
 }
 
 function playRun(seed: number): { circle: number; ritual: number; best: string } {
-  const run = newRun(seed);
+  const run = newRun(seed, undefined, { wheel: WHEEL, stake: STAKE });
   for (;;) {
+    while (run.potions.length) withRng(run, (rng) => usePotion(run, 0, rng).ok || run.potions.shift());
     const { outcome } = spin(run, chooseBet(run), true);
     if (outcome === 'lost') break;
     if (outcome === 'won') {
@@ -89,7 +94,7 @@ for (let s = 1; s <= RUNS; s++) {
   dist.set(r.circle, (dist.get(r.circle) ?? 0) + 1);
   sum += r.circle;
 }
-console.log(`Bot: ${BOT}, Runs: ${RUNS}, Dauer: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+console.log(`Kessel: ${WHEEL}, Stufe: ${STAKE}, Bot: ${BOT}, Runs: ${RUNS}, Dauer: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 console.log(`Ø erreichter Kreis: ${(sum / RUNS).toFixed(2)}`);
 let cum = RUNS;
 for (let c = 1; c <= MAX_CIRCLE; c++) {

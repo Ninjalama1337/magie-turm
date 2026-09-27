@@ -1,6 +1,10 @@
+import { ARCANA_BY_ID } from '../content/arcana';
 import { DEMON_BY_ID } from '../content/demons';
+import { OMEN_BY_ID } from '../content/omens';
 import { PACT_BY_ID } from '../content/pacts';
+import { applyStake } from '../content/stakes';
 import type { DemonDef, RunState, Stats } from './types';
+import { wheelOf } from './wheel';
 
 export const BASE_STATS: Stats = {
   tempo: 12,
@@ -26,6 +30,16 @@ export const BASE_STATS: Stats = {
   ritualBonus: 0,
   sellFull: false,
   upgradeDiscount: 0,
+  potionSlots: 2,
+  potionDiscount: 0,
+  editionChance: 0.08,
+  demonBonus: 0,
+  shopSigils: 2,
+  freeRerolls: 0,
+  priceAdd: 0,
+  targetMult: 1,
+  interestMax: 99,
+  rewardAdd: 0,
 };
 
 export function currentDemon(run: RunState): DemonDef | null {
@@ -35,13 +49,26 @@ export function currentDemon(run: RunState): DemonDef | null {
 export function computeStats(run: RunState, withDemon = true): Stats {
   const s: Stats = { ...BASE_STATS };
   s.lapGlut += run.meta.lapGlut;
+  s.freeRerolls += run.meta.freeReroll;
+  s.shopArcana += run.meta.extraArcanaOffer;
+  wheelOf(run).mod?.(s);
+  applyStake(s, run.stake ?? 1);
+  for (const id of run.omens ?? []) OMEN_BY_ID[id]?.mod?.(s);
   for (const p of run.pacts) PACT_BY_ID[p.id]?.mod?.(s, p.stacks);
+  for (const a of run.arcana) {
+    ARCANA_BY_ID[a.id]?.mod?.(s, a);
+    if (a.edition === 'negativ') s.arcanaSlots += 1;
+  }
   const d = withDemon ? currentDemon(run) : null;
   if (d) {
     s.friction += d.mods.frictionAdd ?? 0;
     s.spins += d.mods.spinsAdd ?? 0;
+    s.targetMult *= d.mods.targetMult ?? 1;
   }
+  s.interestCap = Math.min(s.interestCap, s.interestMax);
   s.spins = Math.max(1, s.spins);
   s.arcanaSlots = Math.max(1, s.arcanaSlots);
+  s.friction = Math.max(0.6, s.friction);
+  s.potionSlots = Math.max(0, s.potionSlots);
   return s;
 }

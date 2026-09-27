@@ -3,7 +3,7 @@ import { DEMON_BY_ID } from '../../content/demons';
 import { PACT_BY_ID } from '../../content/pacts';
 import { SIGIL_BY_ID } from '../../content/sigils';
 import { fmt } from '../../core/num';
-import { circleName, nextRitual, targetFor, withRng } from '../../core/run';
+import { circleName, nextRitual, ritualTarget, withRng } from '../../core/run';
 import {
   arcanaSellValue,
   buy,
@@ -17,9 +17,16 @@ import {
   swapSigils,
   unlockPrice,
   unlockSlot,
+  sellPotion,
   upgradeArcana,
   upgradePrice,
+  usePotion,
 } from '../../core/shop';
+import { wheelOf } from '../../core/wheel';
+import { POTION_BY_ID } from '../../content/potions';
+import { makeDraggable } from '../drag';
+import { attachTip } from '../tooltip';
+import { runTutorial, SHOP_TUTORIAL } from '../tutorial';
 import { computeStats } from '../../core/stats';
 import type { ShopItem } from '../../core/types';
 import { SIGIL_COLOR } from '../../render/colors';
@@ -34,6 +41,9 @@ import {
   pactCard,
   pactChip,
   pactDetail,
+  potionCard,
+  potionChip,
+  potionDetail,
   sigilDetail,
   sigilTile,
 } from '../components';
@@ -76,13 +86,19 @@ export function renderShop(app: App): () => void {
       <div class="panel-head"><h2>Pakte</h2></div>
       <div class="pacts-row" data-pacts></div>
     </section>
+    <section class="panel potions-panel">
+      <div class="panel-head"><h2>Tränke <span class="muted" data-pcount></span></h2><span class="hint">Tippen: trinken oder verkaufen</span></div>
+      <div class="potion-row" data-potions></div>
+    </section>
     <section class="next-panel" data-next></section>`;
   app.root.append(root);
 
   const q = <T extends HTMLElement>(s: string) => root.querySelector(`[data-${s}]`) as T;
   const soulsEl = q('souls');
   const view = new WheelView(q('wheel'));
+  view.wheel = wheelOf(run);
   view.wheelSpeed = -0.18;
+  const cleanups: (() => void)[] = [];
 
   function refresh(): void {
     soulsEl.textContent = String(run.souls);
@@ -90,6 +106,7 @@ export function renderShop(app: App): () => void {
     renderArcana();
     renderRunes();
     renderPacts();
+    renderPotions();
     renderNext();
     view.sigils = run.sigils;
     view.unlocked = run.sigilUnlocked;
@@ -100,7 +117,9 @@ export function renderShop(app: App): () => void {
   function offerCard(o: ShopItem): HTMLElement {
     switch (o.kind) {
       case 'arcana':
-        return arcanaCard(o.id);
+        return arcanaCard(o.id, { edition: o.edition });
+      case 'potion':
+        return potionCard(o.id);
       case 'sigil': {
         const own = run.sigils.find((s) => s?.id === o.id);
         const el = sigilTile(o.id, { level: own ? own.level + 1 : 1 });
@@ -110,14 +129,16 @@ export function renderShop(app: App): () => void {
       case 'pact':
         return pactCard(o.id, run.pacts.find((p) => p.id === o.id)?.stacks ?? 0);
       case 'enchant':
-        return enchantCard(o.enchant, o.pocket);
+        return enchantCard(o.enchant, o.pocket, wheelOf(run));
     }
   }
 
   function offerDetail(o: ShopItem): string {
     switch (o.kind) {
       case 'arcana':
-        return arcanaDetail(o.id);
+        return arcanaDetail(o.id, undefined, 1, o.edition);
+      case 'potion':
+        return potionDetail(o.id);
       case 'sigil': {
         const own = run.sigils.find((s) => s?.id === o.id);
         return sigilDetail(o.id, own ? own.level + 1 : 1) + (own ? '<p class="muted">Du besitzt dieses Siegel bereits – der Kauf erhöht seine Stufe.</p>' : '');
@@ -166,6 +187,7 @@ export function renderShop(app: App): () => void {
           doBuy(i, btn);
         });
         wrap.append(btn);
+        attachTip(card, () => offerDetail(o));
         card.addEventListener('click', () =>
           modal(offerDetail(o), [
             { label: 'Zurück', cls: 'ghost' },
@@ -324,7 +346,7 @@ export function renderShop(app: App): () => void {
       <div class="next-info">
         <div class="lbl">Als Nächstes</div>
         <div class="next-title">${demon ? `${demon.name} · ${demon.title}` : names[nr]}${nc !== run.circle ? ` · Kreis ${roman(nc)}` : ''}</div>
-        <div class="next-goal">Ziel: <b>${fmt(targetFor(nc, nr))}</b></div>
+        <div class="next-goal">Ziel: <b>${fmt(ritualTarget(run, nc, nr))}</b></div>
         ${demon ? `<div class="next-demon">${glyphSvg(demon.glyph)} ${demon.desc}</div>` : ''}
       </div>`;
     const go = h('button', { class: 'btn primary big', text: 'Ritual beginnen' });
@@ -336,8 +358,77 @@ export function renderShop(app: App): () => void {
     el.append(go);
   }
 
+  function renderPotions(): void {
+    const el = q('potions');
+    el.innerHTML = '';
+    const slots = computeStats(run, false).potionSlots;
+    q('pcount').textContent = `${run.potions.length}/${slots}`;
+    if (!run.potions.length) el.innerHTML = '<span class="muted">Keine Tränke</span>';
+    run.potions.forEach((id, i) => {
+      const def = POTION_BY_ID[id];
+      const chip = potionChip(id);
+      chip.append(h('span', { class: 'chip-name', text: def.name }));
+      attachTip(chip, () => potionDetail(id));
+      chip.addEventListener('click', () =>
+        modal(potionDetail(id), [
+          { label: 'Zurück', cls: 'ghost' },
+          {
+            label: `Verkaufen · +${Math.max(1, Math.floor(def.cost / 2))}`,
+            cls: 'danger',
+            onClick: () => {
+              sellPotion(run, i);
+              sfx.souls();
+              refresh();
+            },
+          },
+          {
+            label: def.when === 'ritual' ? 'Nur im Ritual' : 'Trinken',
+            cls: 'primary',
+            disabled: def.when === 'ritual',
+            onClick: () => {
+              const res = withRng(run, (rng) => usePotion(run, i, rng));
+              if (!res.ok) return void toast(res.reason);
+              sfx.buy();
+              toast(res.msg);
+              refresh();
+            },
+          },
+        ]),
+      );
+      el.append(chip);
+    });
+  }
+
+  cleanups.push(
+    makeDraggable(q('arcana'), {
+      item: '.tarot:not(.empty)',
+      onDrop: (from, to) => {
+        moveArcana(run, from, to);
+        sfx.click();
+        refresh();
+      },
+    }),
+    makeDraggable(q('runes'), {
+      item: '.rune:not(.locked)',
+      onDrop: (from, to) => {
+        swapSigils(run, from, to);
+        selectedSlot = -1;
+        sfx.click();
+        refresh();
+      },
+    }),
+  );
+
   q('menu').addEventListener('click', () => showMenu(app, { inRun: true }));
   refresh();
+  if (!app.meta.seen.includes('tutorial-shop')) {
+    app.meta.seen.push('tutorial-shop');
+    app.saveAll();
+    setTimeout(() => void runTutorial(SHOP_TUTORIAL), 400);
+  }
 
-  return () => view.dispose();
+  return () => {
+    cleanups.forEach((c) => c());
+    view.dispose();
+  };
 }

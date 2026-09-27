@@ -2,6 +2,7 @@ import { addFluch, addGlut, addSouls, addTempo, lv, mulFluch, roll, spawnGhost }
 import { fmtMult } from '../core/num';
 import { colorOf, isEven, isOdd } from '../core/wheel';
 import type { ArcanaDef, Src } from '../core/types';
+import { minorArcana } from './arcana-minor';
 
 const S = (i: number): Src => ({ k: 'arcana', i });
 const n = (v: number) => fmtMult(v);
@@ -379,4 +380,6 @@ export const ARCANA: ArcanaDef[] = [
   },
 ];
 
-export const ARCANA_BY_ID: Record<string, ArcanaDef> = Object.fromEntries(ARCANA.map((a) => [a.id, a]));
+export const ARCANA_BY_ID: Record<string, ArcanaDef> = {};
+ARCANA.push(...minorArcana(() => ARCANA_BY_ID));
+for (const a of ARCANA) ARCANA_BY_ID[a.id] = a;

@@ -83,6 +83,7 @@ export function spawnGhost(ctx: SpinCtx, src: Src, energy?: number): Ball | null
     active: true,
     startTick: ctx.tick + 1,
     pocket: null,
+    fric: 1,
   };
   ctx.balls.push(b);
   log(ctx, 'ghostSpawn', b.id, { src, text: 'Irrlicht!', tone: 'ghost' });

@@ -44,8 +44,15 @@ async function scenario(browser, name, viewport) {
   ok(await page.locator('.logo').isVisible(), 'Titel sichtbar');
 
   await page.getByRole('button', { name: /Pakt schließen/ }).click();
+  await page.waitForSelector('.setup');
+  await page.waitForTimeout(500);
+  ok((await page.locator('.stake').count()) === 5, '5 Höllenstufen im Setup');
+  await page.screenshot({ path: `e2e/shots/${name}-0-setup.png` });
+  await page.locator('.setup-go .btn').click();
   await page.waitForSelector('.ritual');
-  await page.getByRole('button', { name: 'Verstanden' }).click();
+  await page.waitForSelector('.tut-box');
+  await page.screenshot({ path: `e2e/shots/${name}-1b-tutorial.png` });
+  await page.getByRole('button', { name: 'Überspringen' }).click();
   await page.waitForTimeout(300);
   ok((await page.locator('.bet').count()) === 10, '10 Einsatz-Felder');
   ok(await page.locator('.wheel-canvas').isVisible(), 'Kessel sichtbar');
@@ -56,10 +63,31 @@ async function scenario(browser, name, viewport) {
     run.arcana.push({ uid: 900, id: 'herrscherin', level: 2, state: {} }, { uid: 901, id: 'sonne', level: 1, state: {} }, { uid: 902, id: 'schatten', level: 1, state: {} });
     run.sigils[1] = { uid: 903, id: 'pentagramm', level: 1 };
     run.sigils[2] = { uid: 904, id: 'tempo', level: 2 };
+    run.arcana[0].edition = 'holo';
+    run.potions = ['blut', 'phiole'];
     window.__app.show('ritual');
   });
   await page.waitForTimeout(300);
   await page.screenshot({ path: `e2e/shots/${name}-2-ritual.png` });
+
+  // Drag & Drop: erste Arkana ans Ende ziehen
+  const cards = page.locator('.arcana-row .tarot:not(.empty)');
+  const first = await cards.nth(0).boundingBox();
+  const last = await cards.nth(2).boundingBox();
+  await page.mouse.move(first.x + first.width / 2, first.y + first.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(first.x + 30, first.y + 20, { steps: 4 });
+  await page.mouse.move(last.x + last.width / 2, last.y + last.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  const order = await page.evaluate(() => window.__app.run.arcana.map((a) => a.id).join(','));
+  ok(order.endsWith('herrscherin'), `Drag & Drop ordnet Arkana um (${order})`);
+
+  // Trank trinken
+  await page.locator('.potion-bar .potion-chip').first().click();
+  await page.getByRole('button', { name: 'Trinken' }).click();
+  await page.waitForTimeout(200);
+  ok((await page.locator('.buff').count()) >= 1, 'Trank-Wirkung wird angezeigt');
 
   await page.locator('.bet[data-kind="red"]').click();
   await page.locator('[data-spin]').click();
@@ -87,6 +115,8 @@ async function scenario(browser, name, viewport) {
   await page.screenshot({ path: `e2e/shots/${name}-5-reward.png` });
   await page.getByRole('button', { name: 'Zum Basar' }).click();
   await page.waitForSelector('.shop');
+  await page.waitForSelector('.tut-box');
+  await page.getByRole('button', { name: 'Überspringen' }).click();
   await page.evaluate(() => {
     window.__app.run.souls = 40;
     window.__app.show('shop');
@@ -106,8 +136,33 @@ async function scenario(browser, name, viewport) {
   // Kodex und Grimoire
   await page.evaluate(() => window.__app.show('codex'));
   await page.waitForSelector('.codex-grid .tarot');
-  ok((await page.locator('.codex-grid .tarot').count()) === 25, '25 Arkana im Kodex');
+  ok((await page.locator('.codex-grid .tarot').count()) === 50, '50 Arkana im Kodex');
   await page.screenshot({ path: `e2e/shots/${name}-7-codex.png` });
+
+  // Mini-Rad
+  await page.evaluate(() => {
+    window.__app.meta.unlockedWheels.push('mini');
+    window.__app.startRun({ wheel: 'mini' });
+  });
+  await page.waitForSelector('.ritual');
+  ok((await page.locator('.bet[data-kind="dozen1"] .bet-l').textContent()) === '1–4', 'Mini-Rad: Drittel-Einsatz 1–4');
+  await page.locator('.bet[data-kind="number"]').click();
+  ok((await page.locator('.num-grid .num').count()) === 13, 'Mini-Rad: 13 Zahlen wählbar');
+  await page.locator('.num-grid .num', { hasText: /^7$/ }).click();
+  await page.locator('[data-spin]').click();
+  await page.locator('[data-skip]').click();
+  await page.waitForSelector('.reveal', { timeout: 15000 });
+  await page.screenshot({ path: `e2e/shots/${name}-8-mini.png` });
+
+  // Tägliche Herausforderung
+  await page.evaluate(() => window.__app.show('challenge'));
+  await page.waitForSelector('.challenge-card');
+  ok((await page.locator('.challenge-card').count()) === 2, 'Täglich & wöchentlich angeboten');
+  await page.screenshot({ path: `e2e/shots/${name}-9-challenge.png`, fullPage: true });
+  await page.locator('.challenge-card.daily .btn').click();
+  await page.getByRole('button', { name: 'Annehmen', exact: true }).click();
+  await page.waitForSelector('.ritual .mode-tag');
+  ok(true, 'Tägliche Herausforderung gestartet');
 
   ok(errors.length === 0, `Keine Konsolenfehler${errors.length ? ': ' + errors.join(' | ') : ''}`);
   await page.close();

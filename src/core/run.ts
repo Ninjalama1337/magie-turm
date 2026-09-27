@@ -1,13 +1,15 @@
 import Decimal from 'break_eternity.js';
 import { ARCANA_BY_ID } from '../content/arcana';
-import { DEMONS, LUCIFER } from '../content/demons';
+import { DEMON_BY_ID, DEMONS, LUCIFER } from '../content/demons';
 import { Rng } from './rng';
 import { generateShop } from './shop';
 import { simulateSpin } from './spin';
 import { computeStats } from './stats';
-import type { Bet, MetaBonuses, RewardLine, RunState, SpinResult } from './types';
+import { OMEN_BY_ID } from '../content/omens';
+import type { Bet, Buffs, MetaBonuses, RewardLine, RunMode, RunState, SpinResult } from './types';
+import { wheelOf } from './wheel';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const SIGIL_SLOTS = 8;
 export const MAX_LEVEL = 5;
 export const FINAL_CIRCLE = 9;
@@ -24,7 +26,7 @@ export const CIRCLE_NAMES = [
   'Verrat',
 ];
 
-const BASE_TARGETS = [100, 400, 1500, 6000, 25000, 100000, 400000, 1500000, 6000000];
+const BASE_TARGETS = [100, 330, 1000, 3500, 12500, 45000, 180000, 750000, 3200000];
 const RITUAL_MULT = [1, 1.5, 2];
 
 export function circleName(c: number): string {
@@ -46,17 +48,47 @@ export function targetFor(circle: number, ritual: number): Decimal {
   return new Decimal(BASE_TARGETS[FINAL_CIRCLE - 1] * mult).mul(Decimal.pow(10, exp)).floor();
 }
 
+/** Ziel eines (auch zukünftigen) Rituals inkl. Stufe, Omen und Dämon */
+export function ritualTarget(run: RunState, circle: number, ritual: number): Decimal {
+  let mult = computeStats(run, false).targetMult;
+  if (ritual === 2) mult *= DEMON_BY_ID[run.circleDemon]?.mods.targetMult ?? 1;
+  return targetFor(circle, ritual).mul(mult).floor();
+}
+
+/** Dämonen, die erst ab dem 3. Kreis erscheinen */
+const HARSH_DEMONS = new Set(['azazel', 'baal', 'paimon', 'belial', 'leviathan']);
+
 export function demonForCircle(circle: number, rng: Rng): string {
   if (circle % FINAL_CIRCLE === 0) return LUCIFER.id;
-  return rng.pick(DEMONS).id;
+  const pool = circle <= 2 ? DEMONS.filter((d) => !HARSH_DEMONS.has(d.id)) : DEMONS;
+  return rng.pick(pool).id;
 }
 
 export const DEFAULT_META: MetaBonuses = { startSouls: 0, startSlots: 0, lapGlut: 0, freeReroll: 0, extraArcanaOffer: 0 };
 
-export function newRun(seed: number, meta: MetaBonuses = DEFAULT_META): RunState {
+export function freshBuffs(): Buffs {
+  return { fluchMult: 1, glutMult: 1, ghosts: 0, tempo: 0, forceHit: false };
+}
+
+export interface RunOptions {
+  wheel?: string;
+  stake?: number;
+  mode?: RunMode;
+  dailyKey?: string;
+  omens?: string[];
+}
+
+export function newRun(seed: number, meta: MetaBonuses = DEFAULT_META, opts: RunOptions = {}): RunState {
   const rng = new Rng(seed);
   const run: RunState = {
     version: SAVE_VERSION,
+    wheel: opts.wheel ?? 'euro',
+    stake: opts.stake ?? 1,
+    mode: opts.mode ?? 'normal',
+    dailyKey: opts.dailyKey ?? '',
+    omens: opts.omens ?? [],
+    potions: [],
+    buffs: freshBuffs(),
     seed,
     rngState: 0,
     circle: 1,
@@ -89,6 +121,8 @@ export function newRun(seed: number, meta: MetaBonuses = DEFAULT_META): RunState
     lastBet: { kind: 'red' },
   };
   run.sigils[0] = { uid: run.uid++, id: 'glut', level: 1 };
+  wheelOf(run).start?.(run);
+  for (const id of run.omens) OMEN_BY_ID[id]?.start?.(run);
   run.circleDemon = demonForCircle(1, rng);
   run.rngState = rng.state;
   startRitual(run);
@@ -97,7 +131,7 @@ export function newRun(seed: number, meta: MetaBonuses = DEFAULT_META): RunState
 
 export function startRitual(run: RunState): void {
   run.demon = run.ritual === 2 ? run.circleDemon : null;
-  run.target = targetFor(run.circle, run.ritual);
+  run.target = ritualTarget(run, run.circle, run.ritual);
   run.spinsLeft = computeStats(run).spins;
   run.ritualScore = new Decimal(0);
   run.phase = 'ritual';
@@ -120,6 +154,7 @@ export function spin(run: RunState, bet: Bet, quiet = false): { result: SpinResu
   const result = withRng(run, (rng) => simulateSpin(run, bet, rng, { quiet }));
   run.ritualScore = run.ritualScore.add(result.score);
   run.souls += result.souls;
+  run.buffs = freshBuffs();
   run.spinsLeft--;
   const st = run.stats;
   st.spins++;
@@ -139,7 +174,8 @@ export function spin(run: RunState, bet: Bet, quiet = false): { result: SpinResu
 export function finishRitual(run: RunState): RewardLine[] {
   const stats = computeStats(run);
   const lines: RewardLine[] = [];
-  lines.push({ label: ritualName(run), souls: 3 + run.ritual });
+  lines.push({ label: ritualName(run), souls: Math.max(1, 3 + run.ritual + stats.rewardAdd) });
+  if (run.ritual === 2 && stats.demonBonus > 0) lines.push({ label: 'Dämonenbann', souls: stats.demonBonus });
   if (run.spinsLeft > 0) lines.push({ label: `Übrige Drehungen (${run.spinsLeft})`, souls: run.spinsLeft });
   const interest = Math.min(Math.floor(run.souls / 5), stats.interestCap);
   if (interest > 0) lines.push({ label: 'Zinsen (1 je 5 Seelen)', souls: interest });

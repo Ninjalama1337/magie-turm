@@ -2,8 +2,10 @@ import { ARCANA_BY_ID } from '../content/arcana';
 import { DEMON_BY_ID, ENCHANT_BY_ID } from '../content/demons';
 import { PACT_BY_ID } from '../content/pacts';
 import { SIGIL_BY_ID } from '../content/sigils';
-import type { ArcanaInst, Enchant, PactInst, SigilInst } from '../core/types';
-import { colorOf } from '../core/wheel';
+import { SUIT_NAME } from '../content/arcana-minor';
+import { POTION_BY_ID } from '../content/potions';
+import type { ArcanaInst, Edition, Enchant, PactInst, SigilInst, Suit } from '../core/types';
+import { colorOf, pocketLabel, type WheelDef } from '../core/wheel';
 import { RARITY_COLOR, RARITY_LABEL, SIGIL_COLOR } from '../render/colors';
 import { h } from './dom';
 import { glyphSvg } from './icons';
@@ -14,18 +16,42 @@ export function levelPips(level: number, max = 5): string {
   return `<span class="pips">${s}</span>`;
 }
 
+export const EDITION_LABEL: Record<Edition, string> = {
+  folie: 'Folie',
+  holo: 'Holo',
+  poly: 'Polychrom',
+  negativ: 'Negativ',
+};
+
+export const EDITION_DESC: Record<Edition, string> = {
+  folie: 'Hat die Karte in einer Drehung ausgelöst: <b class="g">+50 Glut</b> am Drehende.',
+  holo: 'Hat die Karte in einer Drehung ausgelöst: <b class="f">+8 Fluch</b> am Drehende.',
+  poly: 'Hat die Karte in einer Drehung ausgelöst: <b class="x">×1,5 Fluch</b> am Drehende.',
+  negativ: '<b>+1 Arkana-Platz</b> – belegt effektiv keinen Platz.',
+};
+
+const SUIT_GLYPH: Record<Suit, 'staff' | 'cup' | 'sword' | 'coin'> = {
+  staebe: 'staff',
+  kelche: 'cup',
+  schwerter: 'sword',
+  muenzen: 'coin',
+};
+
 export function arcanaCard(
   id: string,
-  opts: { inst?: ArcanaInst; level?: number; inactive?: boolean; small?: boolean } = {},
+  opts: { inst?: ArcanaInst; level?: number; inactive?: boolean; small?: boolean; edition?: Edition } = {},
 ): HTMLDivElement {
   const def = ARCANA_BY_ID[id];
   const level = opts.inst?.level ?? opts.level ?? 1;
+  const edition = opts.inst?.edition ?? opts.edition;
   const el = h('div', {
-    class: `tarot r-${def.rarity}${opts.inactive ? ' inactive' : ''}${opts.small ? ' small' : ''}`,
+    class: `tarot r-${def.rarity}${opts.inactive ? ' inactive' : ''}${opts.small ? ' small' : ''}${edition ? ` ed-${edition}` : ''}${def.suit ? ` suit-${def.suit}` : ''}`,
     style: `--rc:${RARITY_COLOR[def.rarity]}`,
   });
   el.innerHTML = `
     <div class="tarot-inner">
+      ${def.suit ? `<span class="suit-badge" title="${SUIT_NAME[def.suit]}">${glyphSvg(SUIT_GLYPH[def.suit])}</span>` : ''}
+      ${edition ? `<span class="ed-badge">${EDITION_LABEL[edition]}</span>` : ''}
       <div class="tarot-num">${def.numeral}</div>
       <div class="tarot-art">${glyphSvg(def.glyph)}</div>
       <div class="tarot-name">${def.name}</div>
@@ -34,15 +60,17 @@ export function arcanaCard(
   return el;
 }
 
-export function arcanaDetail(id: string, inst?: ArcanaInst, level = 1): string {
+export function arcanaDetail(id: string, inst?: ArcanaInst, level = 1, edition?: Edition): string {
   const def = ARCANA_BY_ID[id];
   const l = inst?.level ?? level;
+  const ed = inst?.edition ?? edition;
   return `<div class="detail-head" style="--rc:${RARITY_COLOR[def.rarity]}">
       ${glyphSvg(def.glyph, 'glyph big')}
-      <div><div class="detail-title">${def.numeral} · ${def.name}</div>
-      <div class="detail-sub">Arkana · ${RARITY_LABEL[def.rarity]} · Stufe ${l}</div></div>
+      <div><div class="detail-title">${def.name}</div>
+      <div class="detail-sub">${def.suit ? `Kleine Arkana · ${SUIT_NAME[def.suit]}` : 'Große Arkana'} · ${RARITY_LABEL[def.rarity]} · Stufe ${l}</div></div>
     </div>
     <p class="detail-desc">${def.desc(l, inst)}</p>
+    ${ed ? `<p class="detail-ed"><b class="x">${EDITION_LABEL[ed]}:</b> ${EDITION_DESC[ed]}</p>` : ''}
     ${l < 5 ? `<p class="detail-next">Nächste Stufe: ${def.desc(l + 1, inst)}</p>` : ''}`;
 }
 
@@ -95,14 +123,40 @@ export function pactDetail(id: string, stacks = 0): string {
     <p class="detail-desc">${def.desc}</p>`;
 }
 
-export function enchantCard(ench: Enchant, pocket: number): HTMLDivElement {
+export function enchantCard(ench: Enchant, pocket: number, wheel?: WheelDef): HTMLDivElement {
   const def = ENCHANT_BY_ID[ench];
-  const col = colorOf(pocket);
+  const col = colorOf(pocket, wheel);
   const el = h('div', { class: 'enchant-card', style: `--ec:${def.color}` });
-  el.innerHTML = `<div class="pocket-badge c-${col}">${pocket}</div>
+  el.innerHTML = `<div class="pocket-badge c-${col}">${pocketLabel(pocket)}</div>
     <div class="pact-name">${def.name}</div>
-    <div class="pact-desc">Verzaubert Fach <b>${pocket}</b>. ${def.desc}</div>`;
+    <div class="pact-desc">Verzaubert Fach <b>${pocketLabel(pocket)}</b>. ${def.desc}</div>`;
   return el;
+}
+
+export function potionCard(id: string): HTMLDivElement {
+  const def = POTION_BY_ID[id];
+  const el = h('div', { class: 'potion-card', style: `--pc:${def.color}` });
+  el.innerHTML = `<div class="flask">${glyphSvg(def.glyph)}</div>
+    <div class="pact-name">${def.name}</div>
+    <div class="pact-desc">${def.desc}</div>`;
+  return el;
+}
+
+export function potionChip(id: string): HTMLButtonElement {
+  const def = POTION_BY_ID[id];
+  const el = h('button', { class: 'potion-chip', style: `--pc:${def.color}`, title: def.name });
+  el.innerHTML = glyphSvg(def.glyph);
+  return el;
+}
+
+export function potionDetail(id: string): string {
+  const def = POTION_BY_ID[id];
+  return `<div class="detail-head" style="--rc:${def.color}">
+      ${glyphSvg(def.glyph, 'glyph big')}
+      <div><div class="detail-title">${def.name}</div>
+      <div class="detail-sub">Trank · ${def.when === 'ritual' ? 'vor einer Drehung' : 'jederzeit'}</div></div>
+    </div>
+    <p class="detail-desc">${def.desc}</p>`;
 }
 
 export function demonBanner(id: string): HTMLDivElement {

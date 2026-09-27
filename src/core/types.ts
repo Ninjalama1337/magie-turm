@@ -1,5 +1,6 @@
 import type Decimal from 'break_eternity.js';
 import type { Rng } from './rng';
+import type { WheelDef } from './wheel';
 
 export type BetKind =
   | 'red'
@@ -27,7 +28,14 @@ export type GlyphId =
   | 'wheel' | 'scales' | 'hanged' | 'skull' | 'cup' | 'devil' | 'tower' | 'star' | 'sun' | 'trumpet'
   | 'world' | 'witch' | 'shadow' | 'eye' | 'flame' | 'drop' | 'bolt' | 'mirror' | 'chain' | 'wisp'
   | 'coin' | 'echo' | 'pentagram' | 'dice' | 'hourglass' | 'snake' | 'candle' | 'feather' | 'horn'
-  | 'bell' | 'book' | 'dagger' | 'rune' | 'infinity';
+  | 'bell' | 'book' | 'dagger' | 'rune' | 'infinity'
+  | 'sword' | 'staff' | 'potion' | 'crystal' | 'moth' | 'raven' | 'altar' | 'magnet' | 'snow' | 'mask' | 'grave' | 'sickle';
+
+export type Suit = 'staebe' | 'kelche' | 'schwerter' | 'muenzen';
+
+export type Edition = 'folie' | 'holo' | 'poly' | 'negativ';
+
+export type RunMode = 'normal' | 'daily' | 'weekly';
 
 export interface ArcanaInst {
   uid: number;
@@ -35,6 +43,7 @@ export interface ArcanaInst {
   level: number;
   /** Frei nutzbarer Zustand, z. B. aufgeladene Werte */
   state: Record<string, number>;
+  edition?: Edition;
 }
 
 export interface SigilInst {
@@ -58,7 +67,8 @@ export interface MetaBonuses {
 }
 
 export type ShopItem =
-  | { kind: 'arcana'; id: string; price: number; sold: boolean }
+  | { kind: 'arcana'; id: string; price: number; sold: boolean; edition?: Edition }
+  | { kind: 'potion'; id: string; price: number; sold: boolean }
   | { kind: 'sigil'; id: string; price: number; sold: boolean }
   | { kind: 'pact'; id: string; price: number; sold: boolean }
   | { kind: 'enchant'; enchant: Enchant; pocket: number; price: number; sold: boolean };
@@ -81,8 +91,24 @@ export interface RunStats {
 
 export type Phase = 'ritual' | 'shop' | 'gameover' | 'victory';
 
+/** Einmal-Effekte von Tränken für die nächste Drehung */
+export interface Buffs {
+  fluchMult: number;
+  glutMult: number;
+  ghosts: number;
+  tempo: number;
+  forceHit: boolean;
+}
+
 export interface RunState {
   version: number;
+  wheel: string;
+  stake: number;
+  mode: RunMode;
+  dailyKey: string;
+  omens: string[];
+  potions: string[];
+  buffs: Buffs;
   seed: number;
   rngState: number;
   circle: number;
@@ -132,6 +158,16 @@ export interface Stats {
   ritualBonus: number;
   sellFull: boolean;
   upgradeDiscount: number;
+  potionSlots: number;
+  potionDiscount: number;
+  editionChance: number;
+  demonBonus: number;
+  shopSigils: number;
+  freeRerolls: number;
+  priceAdd: number;
+  targetMult: number;
+  interestMax: number;
+  rewardAdd: number;
 }
 
 export type Src =
@@ -141,7 +177,8 @@ export type Src =
   | { k: 'bet' }
   | { k: 'pact'; id: string }
   | { k: 'base' }
-  | { k: 'demon' };
+  | { k: 'demon' }
+  | { k: 'potion' };
 
 export type Tone = 'glut' | 'fluch' | 'xfluch' | 'souls' | 'ghost' | 'info' | 'bad' | 'tempo';
 
@@ -171,12 +208,19 @@ export interface Ball {
   active: boolean;
   startTick: number;
   pocket: number | null;
+  /** Reibungsfaktor (Frostsiegel) */
+  fric: number;
 }
 
 export interface SpinCtx {
   run: RunState;
   rng: Rng;
   bet: Bet;
+  wheel: WheelDef;
+  /** Arkana-Indizes, die in dieser Drehung ausgelöst haben (für Editionen) */
+  triggered: Set<number>;
+  firstSpin: boolean;
+  lastSpin: boolean;
   stats: Stats;
   demon: DemonDef | null;
   glut: Decimal;
@@ -210,8 +254,13 @@ export interface ArcanaDef {
   glyph: GlyphId;
   rarity: Rarity;
   cost: number;
+  suit?: Suit;
   desc: (level: number, inst?: ArcanaInst) => string;
   hooks: ArcanaHooks;
+  /** Passiver Wert-Modifikator */
+  mod?: (s: Stats, inst: ArcanaInst) => void;
+  /** Zusätzlicher Verkaufswert */
+  sellBonus?: (inst: ArcanaInst) => number;
 }
 
 type Hook<A extends unknown[] = []> = (ctx: SpinCtx, self: ArcanaInst, idx: number, ...args: A) => boolean;
@@ -224,6 +273,7 @@ export interface ArcanaHooks {
   betHit?: Hook;
   betMiss?: Hook;
   ghost?: Hook<[Ball]>;
+  ghostLand?: Hook<[number, Ball]>;
   spinEnd?: Hook;
   ritualEnd?: (run: RunState, self: ArcanaInst, idx: number, log: RewardLine[]) => void;
 }
@@ -262,6 +312,11 @@ export interface DemonMods {
   spinsAdd?: number;
   sigilEveryOther?: boolean;
   targetMult?: number;
+  glutFactor?: number;
+  halfPayout?: boolean;
+  shuffleArcana?: boolean;
+  reverseSigils?: boolean;
+  noSouls?: boolean;
 }
 
 export interface DemonDef {

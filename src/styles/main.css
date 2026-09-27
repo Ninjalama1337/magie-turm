@@ -768,3 +768,157 @@ b.tick { animation: tick 0.18s ease; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* ============================================================ v0.2 */
+
+/* Farben der Kleinen Arkana & Editionen */
+.suit-badge { position: absolute; top: 4px; left: 4px; width: 14px; height: 14px; color: var(--rc); opacity: 0.8; z-index: 1; }
+.suit-badge .glyph { width: 14px; height: 14px; vertical-align: top; }
+.ed-badge {
+  position: absolute; top: 3px; right: 3px; z-index: 2;
+  font-family: var(--head); font-size: 0.5rem; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 4px; background: rgba(0, 0, 0, 0.7); color: #fff; white-space: nowrap;
+}
+.tarot.ed-folie .tarot-inner::after,
+.tarot.ed-holo .tarot-inner::after,
+.tarot.ed-poly .tarot-inner::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; border-radius: 6px;
+  background-size: 250% 250%; animation: sheen 3.5s linear infinite;
+}
+.tarot.ed-folie .tarot-inner::after { background-image: linear-gradient(115deg, transparent 30%, rgba(180, 220, 255, 0.35) 45%, transparent 60%); }
+.tarot.ed-holo .tarot-inner::after { background-image: linear-gradient(115deg, rgba(255, 0, 120, 0.18), rgba(0, 255, 220, 0.2), rgba(255, 230, 0, 0.18), rgba(255, 0, 120, 0.18)); }
+.tarot.ed-poly .tarot-inner { animation: hue 4s linear infinite; }
+.tarot.ed-poly .tarot-inner::after { background-image: radial-gradient(circle at 30% 30%, rgba(255, 79, 216, 0.35), transparent 60%); }
+.tarot.ed-negativ .tarot-inner { filter: invert(1) hue-rotate(180deg); }
+.tarot.ed-folie .ed-badge { background: #2b5a8a; }
+.tarot.ed-holo .ed-badge { background: linear-gradient(90deg, #c2187a, #0aa39a); }
+.tarot.ed-poly .ed-badge { background: #a3148f; }
+.tarot.ed-negativ .ed-badge { background: #444; filter: invert(1); }
+@keyframes sheen { to { background-position: -250% 0; } }
+@keyframes hue { to { filter: hue-rotate(360deg); } }
+.detail-ed { font-size: 0.95rem; margin: 4px 0; }
+
+/* Tränke */
+.potion-card {
+  width: 150px; min-height: 132px; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  text-align: center; cursor: pointer; position: relative;
+  border: 1px solid color-mix(in srgb, var(--pc) 55%, transparent);
+  background: radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--pc) 22%, transparent), transparent 60%), linear-gradient(180deg, #1b1016, #0c070a);
+}
+.codex-grid .potion-card { width: 100%; cursor: default; }
+.flask { width: 42px; height: 42px; border-radius: 50% 50% 45% 45%; display: grid; place-items: center; color: var(--pc); background: rgba(0, 0, 0, 0.45); border: 1px solid var(--pc); box-shadow: 0 0 14px color-mix(in srgb, var(--pc) 60%, transparent), inset 0 -10px 16px color-mix(in srgb, var(--pc) 35%, transparent); }
+.flask .glyph { width: 24px; height: 24px; }
+.potion-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 38px; min-width: 38px; padding: 0 9px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--pc); color: var(--pc); background: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--pc) 30%, #1a0c10), #0d0608);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--pc) 35%, transparent); font-family: var(--head); font-size: 0.75rem;
+}
+.potion-chip .glyph { width: 20px; height: 20px; }
+.potion-chip .chip-name { color: var(--text); }
+.potion-chip:disabled { opacity: 0.4; }
+.potion-bar { display: flex; gap: 6px; align-items: center; justify-content: center; order: 5; }
+.potion-bar.empty { display: none; }
+.potion-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.buffs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; order: 5; }
+.buffs:empty { display: none; }
+.buff { font-family: var(--head); font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.5); border: 1px solid currentColor; animation: demon-pulse 2s infinite; }
+
+/* Kopfzeile */
+.mode-tag, .stake-tag { display: inline-block; font-size: 0.62rem; letter-spacing: 0.08em; padding: 1px 6px; border-radius: 4px; margin: 0 6px; vertical-align: 1px; }
+.mode-tag { background: #1d5a73; color: #cff5ff; }
+.stake-tag { background: #6b0f1a; color: #ffd0d6; }
+
+/* Tooltip */
+.tooltip {
+  position: fixed; z-index: 90; max-width: 300px; pointer-events: none; opacity: 0; transform: translateY(4px);
+  background: linear-gradient(180deg, #2a1212, #140808); border: 1px solid var(--line2); border-radius: 10px; padding: 10px 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7); transition: opacity 0.12s, transform 0.12s; font-size: 0.92rem;
+}
+.tooltip.show { opacity: 1; transform: none; }
+.tooltip .glyph.big { width: 30px; height: 30px; }
+.tooltip .detail-desc { font-size: 0.95rem; margin: 6px 0 2px; }
+.tooltip .detail-next { font-size: 0.8rem; }
+
+/* Drag & Drop */
+.drag-ghost { position: fixed; z-index: 95; pointer-events: none; opacity: 0.92; filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.7)); transition: none; margin: 0; }
+.dragging { opacity: 0.3; }
+.drop-target { outline: 2px dashed var(--gold2); outline-offset: 3px; transform: translateY(-3px); }
+
+/* Tutorial */
+.tut-back { position: fixed; inset: 0; z-index: 85; }
+.tut-spot { position: fixed; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(5, 2, 3, 0.78), 0 0 0 2px var(--gold2), 0 0 30px rgba(242, 211, 138, 0.5); transition: all 0.3s ease; pointer-events: none; }
+.tut-box {
+  position: fixed; left: 50%; transform: translateX(-50%); width: min(92vw, 400px); padding: 14px 16px; border-radius: 12px;
+  background: linear-gradient(180deg, #2a1212, #140808); border: 1px solid var(--line2); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8); transition: top 0.3s ease;
+}
+.tut-box p { margin: 6px 0 10px; }
+.tut-count { font-family: var(--head); font-size: 0.7rem; color: var(--muted); letter-spacing: 0.15em; }
+.tut-title { font-family: var(--head); font-weight: 700; color: var(--gold2); font-size: 1.1rem; }
+.tut-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Setup */
+.wheel-pick { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.wheel-preview { width: min(62vw, 300px); aspect-ratio: 1; display: grid; place-items: center; touch-action: pan-y; }
+.wheel-preview.locked { filter: grayscale(1) brightness(0.5); }
+.arrow { font-size: 28px; }
+.wheel-dots { display: flex; gap: 6px; justify-content: center; }
+.wheel-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(201, 162, 90, 0.3); }
+.wheel-dots i.on { background: var(--gold2); box-shadow: 0 0 6px var(--gold2); }
+.wheel-dots i.lock { outline: 1px solid rgba(255, 60, 90, 0.5); }
+.stakes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.stake { border: 1px solid var(--line); background: rgba(0, 0, 0, 0.4); border-radius: 8px; padding: 6px 2px; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
+.stake b { font-family: var(--head); font-size: 1.1rem; }
+.stake small { font-size: 0.65rem; color: var(--muted); }
+.stake.sel { border-color: var(--gold2); box-shadow: 0 0 14px rgba(242, 211, 138, 0.4); background: rgba(120, 20, 30, 0.5); }
+.stake.won b { color: var(--souls); }
+.stake:disabled { opacity: 0.3; cursor: not-allowed; }
+.stake-desc { display: flex; flex-direction: column; gap: 2px; font-size: 0.88rem; margin: 8px 0 0; }
+.setup-go { display: flex; justify-content: center; padding: 6px 0 10px; }
+
+/* Herausforderungen */
+.challenges { display: flex; flex-direction: column; gap: 10px; }
+.challenge-card .btn { width: 100%; margin-top: 10px; }
+.ch-row { display: flex; gap: 12px; align-items: center; }
+.ch-row .glyph.big { width: 36px; height: 36px; }
+.omens { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.omens li { display: flex; gap: 10px; align-items: flex-start; font-size: 0.92rem; background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 6px 8px; }
+.omens .glyph { width: 22px; height: 22px; color: var(--x); margin-top: 2px; }
+.ch-result { margin-top: 10px; font-size: 0.95rem; }
+.hist-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; padding: 4px 0; border-bottom: 1px dashed rgba(201, 162, 90, 0.15); font-size: 0.9rem; }
+
+/* Einstellungen */
+.set-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 2px; border-bottom: 1px dashed rgba(201, 162, 90, 0.15); }
+.set-row input[type='range'] { width: 55%; accent-color: var(--red); }
+.set-row input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--red); }
+.set-row select { background: #1a0c0c; color: var(--text); border: 1px solid var(--line2); border-radius: 6px; padding: 4px 8px; font: inherit; }
+.settings .btn.small { margin-top: 10px; }
+
+.title-row { display: flex; gap: 8px; }
+.title-row .btn { min-width: 106px !important; }
+.end-news { font-family: var(--head); color: var(--souls); background: rgba(90, 60, 10, 0.4); border: 1px solid rgba(244, 201, 93, 0.4); padding: 6px 12px; border-radius: 8px; }
+.demon-card.locked { opacity: 0.45; filter: grayscale(0.7); }
+.demon-card.done .glyph.big { --rc: var(--souls); }
+.reveal em { font-style: normal; font-family: var(--head); font-size: 0.8rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--souls); text-shadow: 0 0 12px var(--souls); animation: flicker 0.8s infinite; }
+
+/* Eskalation */
+.ritual[data-tier='2'] .calc-box b { font-size: clamp(1.3rem, 6.5vw, 2rem); }
+.ritual[data-tier='3'] .calc-box, .ritual[data-tier='4'] .calc-box { animation: tier-pulse 0.4s ease-in-out infinite alternate; }
+.ritual[data-tier='3'] .wheel-canvas { filter: drop-shadow(0 0 30px rgba(255, 79, 216, 0.5)) saturate(1.4); }
+.ritual[data-tier='4'] .wheel-canvas { filter: drop-shadow(0 0 50px rgba(126, 249, 255, 0.6)) saturate(1.8) hue-rotate(-20deg); }
+@keyframes tier-pulse { to { box-shadow: 0 0 30px currentColor; transform: scale(1.03); } }
+body.glitch #app { animation: glitch 0.45s steps(3) 1; }
+@keyframes glitch {
+  0% { transform: translate(0); filter: none; }
+  25% { transform: translate(-4px, 2px) skewX(3deg); filter: hue-rotate(90deg) contrast(1.4); }
+  50% { transform: translate(4px, -2px) skewX(-3deg); filter: invert(0.1) hue-rotate(-90deg); }
+  75% { transform: translate(-2px, 0); filter: saturate(3); }
+  100% { transform: translate(0); filter: none; }
+}
+.reduced-fx .vignette { display: none; }
+.reduced-fx .tarot.jump, .reduced-fx body.glitch #app { animation: none !important; }
+
+@media (min-width: 1000px) {
+  .setup, .challenge { max-width: 760px; }
+  .wheel-preview { width: 340px; }
+  .potions-panel { grid-column: 2; }
+}

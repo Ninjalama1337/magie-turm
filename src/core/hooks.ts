@@ -22,6 +22,7 @@ export function fireArcana<H extends ArcanaHookName>(ctx: SpinCtx, idx: number, 
     | undefined;
   if (!fn) return false;
   const fired = fn(ctx, inst, idx, ...args);
+  if (fired) ctx.triggered.add(idx);
   if (!fired || ctx.depth >= MAX_DEPTH) return fired;
 
   const right = ctx.run.arcana[idx + 1];

@@ -2,10 +2,9 @@ import { sfx } from '../../audio/sfx';
 import { circleName } from '../../core/run';
 import { WheelView } from '../../render/wheel';
 import type { App } from '../app';
-import { modal } from '../components';
 import { h } from '../dom';
 import { glyphSvg } from '../icons';
-import { showHelp } from './menu';
+import { showHelp, showSettings } from './menu';
 
 export function renderTitle(app: App): () => void {
   const root = h('div', { class: 'screen title' });
@@ -54,17 +53,16 @@ export function renderTitle(app: App): () => void {
     btns.append(b);
   };
   if (run) add('Fortsetzen', 'primary big', () => app.resume(), `Kreis ${run.circle} · ${circleName(run.circle)}`);
-  add(run ? 'Neuer Pakt' : 'Pakt schließen', run ? 'big' : 'primary big', () => {
-    if (run) {
-      modal('<div class="modal-title">Neuen Run beginnen?</div><p class="muted">Dein laufender Run geht verloren.</p>', [
-        { label: 'Abbrechen', cls: 'ghost' },
-        { label: 'Neu beginnen', cls: 'danger', onClick: () => app.startNewRun() },
-      ]);
-    } else app.startNewRun();
-  });
+  add(run ? 'Neuer Pakt' : 'Pakt schließen', run ? 'big' : 'primary big', () => app.show('setup'));
+  add('Herausforderungen', '', () => app.show('challenge'), 'Täglich & wöchentlich');
   add('Grimoire', '', () => app.show('grimoire'), `${app.meta.ash} Asche`);
-  add('Kodex', '', () => app.show('codex'));
-  add('Regeln', 'ghost', () => showHelp());
+  add('Kodex', '', () => app.show('codex'), `${app.meta.achievements.length} Erfolge`);
+  const row = h('div', { class: 'title-row' });
+  row.append(
+    h('button', { class: 'btn ghost', text: 'Regeln', onclick: () => showHelp() }),
+    h('button', { class: 'btn ghost', text: 'Einstellungen', onclick: () => showSettings(app) }),
+  );
+  btns.append(row);
 
   root.querySelector('[data-sound]')!.addEventListener('click', (e) => {
     const on = app.toggleSound();

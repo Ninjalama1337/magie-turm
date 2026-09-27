@@ -10,6 +10,7 @@ export function renderEnd(app: App): void {
   if (!run) return app.show('title');
   const victory = run.phase === 'victory';
   const ash = victory ? ashFor(run) : app.endRun();
+  const news = victory ? app.recordVictory() : [];
 
   const st = run.stats;
   const root = h('div', { class: `screen end ${victory ? 'victory' : 'defeat'}` });
@@ -31,6 +32,7 @@ export function renderEnd(app: App): void {
       <div><span>Meiste Irrlichter</span><b>${st.maxGhosts}</b></div>
       <div><span>Einsätze getroffen</span><b>${st.betsHit}/${st.spins}</b></div>
     </div>
+    ${news.map((n) => `<div class="end-news">${glyphSvg('star')} ${n}</div>`).join('')}
     <div class="end-ash">${glyphSvg('flame')} <b>+${ash}</b> Asche ${victory ? '(beim Beenden)' : 'verdient'}</div>
     <div class="end-buttons" data-b></div>`;
   app.root.append(root);
@@ -61,7 +63,7 @@ export function renderEnd(app: App): void {
   } else {
     app.run = null;
     b.append(
-      h('button', { class: 'btn primary big', text: 'Neuer Pakt', onclick: () => app.startNewRun() }),
+      h('button', { class: 'btn primary big', text: 'Neuer Pakt', onclick: () => app.show(run.mode === 'normal' ? 'setup' : 'challenge') }),
       h('button', { class: 'btn', text: 'Grimoire', onclick: () => app.show('grimoire') }),
       h('button', { class: 'btn ghost', text: 'Zum Titel', onclick: () => app.show('title') }),
     );
