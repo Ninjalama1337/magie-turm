@@ -1,0 +1,10 @@
+{
+  "appId": "de.ninjalama.teufelsrad",
+  "appName": "Teufelsrad",
+  "webDir": "dist",
+  "backgroundColor": "#0b0607",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0b0607"
+  }
+}

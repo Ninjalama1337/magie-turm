@@ -6,7 +6,7 @@ type Attrs = {
   style?: string;
   disabled?: boolean;
   onclick?: (e: MouseEvent) => void;
-  [data: `data-${string}`]: string | number;
+  [attr: string]: string | number | boolean | ((e: MouseEvent) => void) | undefined;
 };
 
 export function h<K extends keyof HTMLElementTagNameMap>(

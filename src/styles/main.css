@@ -922,3 +922,10 @@ body.glitch #app { animation: glitch 0.45s steps(3) 1; }
   .wheel-preview { width: 340px; }
   .potions-panel { grid-column: 2; }
 }
+
+.update-banner {
+  position: fixed; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 88;
+  display: flex; gap: 8px; align-items: center; padding: 6px 8px 6px 14px; border-radius: 999px;
+  background: rgba(20, 8, 8, 0.96); border: 1px solid var(--gold); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); font-size: 0.9rem; white-space: nowrap;
+}
+.update-banner a.btn { text-decoration: none; }

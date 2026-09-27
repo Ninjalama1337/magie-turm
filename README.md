@@ -20,7 +20,32 @@ Ein Run führt durch die **9 Höllenkreise** mit je drei Ritualen: Klein, Groß 
 Zwischen den Ritualen kaufst du im **Basar** ein: Arkana, Siegel (erneuter Kauf erhöht die Stufe), Pakte und Fach-Verzauberungen. Außerdem kannst du Rauten freilegen und Arkana aufwerten.
 Mit **Asche** aus beendeten Runs schaltest du im **Grimoire** dauerhafte Boni frei.
 
-**Inhalt (Vertical Slice):** 25 Arkana · 12 Siegel · 20 Pakte · 7 Dämonen · 5 Verzauberungen · 1 Kessel
+**Inhalt (v0.2):**
+- 50 Arkana: 25 Große, 24 Kleine Arkana in 4 Farben und Der Spieler
+- 30 Siegel, 40 Pakte, 12 Tränke
+- 13 Dämonen, 5 Verzauberungen
+- 6 Kessel, 5 Höllenstufen
+- 12 Omen, 21 Erfolge
+
+### Kessel & Höllenstufen
+| Kessel | Besonderheit |
+|---|---|
+| Europäisch | Klassisch, 37 Fächer |
+| Amerikanisch | 0 **und** 00, Höllen-Synergien, Start mit *Der Turm* |
+| Mini-Rad | Nur 0–12, rasend schnell, Drittel statt Dutzend |
+| Blutrad | 6 Blutfächer, −1 Arkana-Platz |
+| Knochenrad | Alle 8 Rauten frei, schwere Kugel |
+| Sternenrad | Glück ×2, nur 3 Drehungen |
+
+Einen neuen Kessel schaltest du frei, indem du mit dem vorherigen gewinnst oder ihn mit Asche kaufst. Jeder Sieg öffnet die nächste der 5 Höllenstufen für diesen Kessel.
+
+### Herausforderungen
+Täglich und wöchentlich gibt es einen festen Seed mit Kessel, Stufe und Omen, gleich für alle Spieler. Grimoire-Boni gelten dabei nicht, und gewertet wird der erste Versuch (lokaler Verlauf und Serie).
+
+### Weitere Systeme
+- **Editionen:** Arkana erscheinen im Basar manchmal als Folie, Holo, Polychrom oder Negativ.
+- **Tränke:** Einmal-Effekte vor einer Drehung oder im Basar.
+- **Bedienung:** Drag & Drop, Hover-Tooltips am Desktop, geführtes Tutorial, Einstellungen (Musik, Effekte, Wackeln, reduzierte Effekte).
 
 ## Entwicklung
 
@@ -31,7 +56,14 @@ npm test           # Unit-Tests (Vitest)
 npm run sim        # Balance-Simulation (Greedy-Bots), z. B. npm run sim -- runs=500 bot=dumb
 npm run build      # Typecheck + Produktions-Build nach dist/
 npm run e2e        # Playwright-Smoke-Test gegen den Build (Screenshots in e2e/shots/)
+npm run icons      # PWA- und Android-Icons/Splashscreens aus public/icon.svg erzeugen
+npm run apk        # Build + Capacitor-Sync + APK (benötigt Android-SDK)
 ```
+
+### Android
+`android/` ist ein Capacitor-Projekt (`de.ninjalama.teufelsrad`, Hochformat). Alle Builds werden mit `android/teufelsrad.jks` identisch signiert, damit Updates drüber installierbar sind. Die App zeigt ein Banner, sobald auf GitHub ein neueres Release liegt.
+
+> **Sicherheit:** Der Keystore liegt wie beim Vorgängerprojekt im Repo. Ist das Repo öffentlich, lege stattdessen die Secrets `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` und `ANDROID_KEY_PASSWORD` an. Die CI nutzt sie automatisch, und der Repo-Keystore kann dann entfernt werden.
 
 ### Architektur
 
@@ -51,4 +83,6 @@ Simulation und Darstellung sind strikt getrennt: `simulateSpin()` berechnet das 
 
 ## CI/CD
 
-Jeder Push und jeder PR durchläuft Typecheck, Unit-Tests, Balance-Simulation, Build und E2E. Pushes auf `main` werden zusätzlich auf **GitHub Pages** veröffentlicht (dafür in den Repo-Einstellungen unter *Pages* die Quelle „GitHub Actions“ wählen).
+Jeder Push und jeder PR durchläuft Typecheck, Unit-Tests, Balance-Simulation, Build und E2E. Danach baut ein zweiter Job die signierte **APK** als Artifact.
+- **Tag `v*`:** Die APK wird zusätzlich als **GitHub Release** (`teufelsrad.apk`) veröffentlicht.
+- **Push auf `main`:** Die Web-Version wird auf **GitHub Pages** veröffentlicht. Dafür in den Repo-Einstellungen unter *Pages* die Quelle „GitHub Actions“ wählen.
