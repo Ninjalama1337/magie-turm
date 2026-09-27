@@ -3,6 +3,7 @@
  * bot=sim bewertet Käufe per Simulation (langsam, aber realistischer bei großen Pools).
  */
 import { ARCANA_BY_ID } from '../src/content/arcana';
+import { talentBonuses, TALENTS } from '../src/content/talents';
 import { LEVELS, STARTER } from '../src/content/unlocks';
 import { fmt } from '../src/core/num';
 import { continueEndless, finishRitual, FINAL_CIRCLE, newRun, nextRitual, spin, withRng } from '../src/core/run';
@@ -28,6 +29,7 @@ const RUNS = Number(args.runs ?? 300);
 const BOT = args.bot ?? 'smart';
 const MAX_CIRCLE = Number(args.max ?? 14);
 const WHEEL = args.wheel ?? 'euro';
+const META = args.talents === 'all' ? talentBonuses(TALENTS.map((t) => t.id)) : undefined;
 const STAKE = Number(args.stake ?? 1);
 const POOL = args.pool === 'starter' ? STARTER : args.pool ? [...STARTER, ...LEVELS.slice(0, Number(args.pool)).flatMap((l) => l.items)] : undefined;
 
@@ -125,7 +127,7 @@ function shopTurn(run: RunState): void {
 }
 
 function playRun(seed: number): { circle: number; ritual: number; best: string } {
-  const run = newRun(seed, undefined, { wheel: WHEEL, stake: STAKE, pool: POOL });
+  const run = newRun(seed, META, { wheel: WHEEL, stake: STAKE, pool: POOL });
   for (;;) {
     while (run.potions.length) withRng(run, (rng) => usePotion(run, 0, rng).ok || run.potions.shift());
     const { outcome } = spin(run, chooseBet(run), true);

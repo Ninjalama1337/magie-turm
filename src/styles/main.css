@@ -970,3 +970,45 @@ body.glitch #app { animation: glitch 0.45s steps(3) 1; }
 .locked-card .lock-overlay .glyph { width: 22px; height: 22px; color: var(--gold); }
 .lock-note { font-size: 0.9rem; color: var(--ghost); display: flex; gap: 6px; align-items: flex-start; }
 .codex-sub { grid-column: 1 / -1; font-family: var(--head); color: var(--gold2); font-size: 0.95rem; letter-spacing: 0.1em; text-transform: uppercase; margin: 8px 0 0; }
+
+/* ============================================================ Talentbaum */
+.talent-summary { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-family: var(--head); font-size: 0.85rem; }
+.talent-summary .bar { margin: 0; }
+.talent-tree { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.branch { --bc: var(--gold); background: var(--panel); border: 1px solid color-mix(in srgb, var(--bc) 40%, transparent); border-radius: var(--radius); padding: 10px; }
+.branch-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.branch-head .glyph.big { --rc: var(--bc); width: 34px; height: 34px; }
+.branch-head b { display: block; font-family: var(--head); color: var(--bc); }
+.branch-head span { font-size: 0.85rem; color: var(--muted); }
+.branch-head em { margin-left: auto; font-style: normal; font-family: var(--head); color: var(--bc); }
+.branch-nodes { display: flex; flex-direction: column; gap: 0; position: relative; }
+.talent {
+  position: relative; display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center;
+  padding: 8px 10px; margin-bottom: 12px; border-radius: 10px; border: 1px solid rgba(201, 162, 90, 0.2); background: rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s, box-shadow 0.15s, border-color 0.15s;
+}
+.talent:not(:last-child)::after { content: ''; position: absolute; left: 28px; bottom: -13px; width: 2px; height: 12px; background: rgba(201, 162, 90, 0.25); }
+.talent.owned:not(:last-child)::after { background: var(--bc); box-shadow: 0 0 6px var(--bc); }
+.talent-icon { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; border: 1px solid rgba(201, 162, 90, 0.3); color: var(--muted); }
+.talent-icon .glyph { width: 22px; height: 22px; }
+.talent-body > b { display: block; font-family: var(--head); font-size: 0.85rem; }
+.talent-body > span { display: block; font-size: 0.85rem; line-height: 1.25; }
+.talent-cost { display: flex; align-items: center; gap: 3px; font-family: var(--head); color: var(--glut); font-size: 0.9rem; }
+.talent-cost .glyph { width: 16px; height: 16px; }
+.talent.owned { border-color: var(--bc); background: color-mix(in srgb, var(--bc) 12%, rgba(0, 0, 0, 0.4)); }
+.talent.owned .talent-icon { border-color: var(--bc); color: var(--bc); box-shadow: 0 0 12px color-mix(in srgb, var(--bc) 60%, transparent); }
+.talent.owned .talent-cost { color: var(--bc); }
+.talent.ready { cursor: pointer; border-color: var(--gold2); animation: demon-pulse 2.4s infinite; }
+.talent.ready:hover { transform: translateX(3px); box-shadow: 0 0 18px rgba(242, 211, 138, 0.35); }
+.talent.avail { cursor: pointer; opacity: 0.85; }
+.talent.avail .talent-cost { color: var(--bad); }
+.talent.locked { opacity: 0.4; }
+.talent.capstone { border-width: 2px; }
+.talent.capstone .talent-icon { width: 38px; height: 38px; border-radius: 8px; transform: rotate(45deg); }
+.talent.capstone .talent-icon .glyph { transform: rotate(-45deg); }
+.talent.learned { animation: learned 0.7s cubic-bezier(0.2, 1.4, 0.4, 1); }
+@keyframes learned { 0% { transform: scale(0.9); filter: brightness(2.5); } 60% { transform: scale(1.04); } 100% { transform: none; filter: none; } }
+@media (min-width: 1000px) {
+  .grimoire { max-width: 1200px; }
+  .talent-tree { grid-template-columns: repeat(3, 1fr); }
+}

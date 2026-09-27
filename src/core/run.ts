@@ -1,5 +1,6 @@
 import Decimal from 'break_eternity.js';
-import { ARCANA_BY_ID } from '../content/arcana';
+import { ARCANA, ARCANA_BY_ID } from '../content/arcana';
+import { EMPTY_META, fullMeta } from '../content/talents';
 import { DEMON_BY_ID, DEMONS, LUCIFER } from '../content/demons';
 import { Rng } from './rng';
 import { generateShop } from './shop';
@@ -64,7 +65,7 @@ export function demonForCircle(circle: number, rng: Rng): string {
   return rng.pick(pool).id;
 }
 
-export const DEFAULT_META: MetaBonuses = { startSouls: 0, startSlots: 0, lapGlut: 0, freeReroll: 0, extraArcanaOffer: 0 };
+export const DEFAULT_META: MetaBonuses = EMPTY_META;
 
 export function freshBuffs(): Buffs {
   return { fluchMult: 1, glutMult: 1, ghosts: 0, tempo: 0, forceHit: false };
@@ -80,7 +81,8 @@ export interface RunOptions {
   pool?: string[];
 }
 
-export function newRun(seed: number, meta: MetaBonuses = DEFAULT_META, opts: RunOptions = {}): RunState {
+export function newRun(seed: number, metaIn: Partial<MetaBonuses> = DEFAULT_META, opts: RunOptions = {}): RunState {
+  const meta = fullMeta(metaIn);
   const rng = new Rng(seed);
   const run: RunState = {
     version: SAVE_VERSION,
@@ -125,6 +127,13 @@ export function newRun(seed: number, meta: MetaBonuses = DEFAULT_META, opts: Run
   };
   run.sigils[0] = { uid: run.uid++, id: 'glut', level: 1 };
   wheelOf(run).start?.(run);
+  // Grimoire: Reliquie – zufällige seltene Arkana aus dem freigeschalteten Pool
+  for (let k = 0; k < meta.startRare; k++) {
+    const pool = ARCANA.filter(
+      (a) => a.rarity === 'rare' && (!run.pool || run.pool.includes(`arcana:${a.id}`)) && !run.arcana.some((o) => o.id === a.id),
+    );
+    if (pool.length) run.arcana.push({ uid: run.uid++, id: rng.pick(pool).id, level: 1, state: {} });
+  }
   for (const id of run.omens) OMEN_BY_ID[id]?.start?.(run);
   run.circleDemon = demonForCircle(1, rng);
   run.rngState = rng.state;

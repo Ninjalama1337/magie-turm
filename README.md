@@ -18,7 +18,7 @@ Ein okkulter **Roulette-Roguelite-Deckbuilder** für Browser und Handy (PWA), in
 
 Ein Run führt durch die **9 Höllenkreise** mit je drei Ritualen: Klein, Groß und einem **Dämon**, der die Regeln verdreht. Im neunten Kreis wartet Luzifer. Danach geht es im **Jenseits** endlos weiter, mit super-exponentiell wachsenden Zielen (Zahlen über `1e308` dank `break_eternity.js`).
 Zwischen den Ritualen kaufst du im **Basar** ein: Arkana, Siegel (erneuter Kauf erhöht die Stufe), Pakte und Fach-Verzauberungen. Außerdem kannst du Rauten freilegen und Arkana aufwerten.
-Mit **Asche** aus beendeten Runs schaltest du im **Grimoire** dauerhafte Boni frei.
+Mit **Asche** aus beendeten Runs und Erfolgen wächst im **Grimoire** ein **Talentbaum** mit drei Pfaden zu je 8 Knoten: *Flamme* (Glut und Fluch), *Gold* (Seelen, Basar, Tränke) und *Kugel* (Tempo, Rauten, Irrlichter). Späte Knoten und die Schlusssteine sind ein Langzeitziel (insgesamt 1.980 Asche). Die alten Grimoire-Segnungen werden beim Update als Asche erstattet.
 
 **Inhalt (v0.2):**
 - 50 Arkana: 25 Große, 24 Kleine Arkana in 4 Farben und Der Spieler

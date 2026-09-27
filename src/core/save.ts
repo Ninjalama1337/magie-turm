@@ -1,5 +1,6 @@
 import Decimal from 'break_eternity.js';
 import { freshBuffs, SAVE_VERSION } from './run';
+import { talentBonuses } from '../content/talents';
 import { STARTER } from '../content/unlocks';
 import type { MetaBonuses, RunState } from './types';
 
@@ -83,6 +84,10 @@ export interface MetaState {
   dailies: Record<string, DailyRecord>;
   settings: Settings;
   insight: Insight;
+  /** Gekaufte Grimoire-Talente */
+  talents: string[];
+  /** Asche, die beim Umstieg auf den Talentbaum erstattet wurde (für einen Hinweis) */
+  legacyRefund?: number;
 }
 
 /** Erkenntnis-Fortschritt: freigeschalteter Karten-Pool */
@@ -122,63 +127,34 @@ export const DEFAULT_META_STATE: MetaState = {
   dailies: {},
   settings: { music: 0.6, sfx: 0.8, shake: true, reducedFx: false },
   insight: { xp: 0, unlocked: [...STARTER] },
+  talents: [],
 };
 
-export interface MetaUpgrade {
-  id: keyof MetaBonuses;
-  name: string;
-  desc: (lvl: number) => string;
-  max: number;
-  cost: (lvl: number) => number;
+/** Grimoire-Boni aus den gekauften Talenten */
+export function metaBonuses(meta: MetaState): MetaBonuses {
+  return talentBonuses(meta.talents ?? []);
 }
 
-export const META_UPGRADES: MetaUpgrade[] = [
-  {
-    id: 'startSouls',
-    name: 'Blutgeld',
-    desc: (l) => `Starte jeden Run mit <b class="s">+${l * 2} Seelen</b>.`,
-    max: 5,
-    cost: (l) => 4 + l * 4,
-  },
-  {
-    id: 'lapGlut',
-    name: 'Glutkern',
-    desc: (l) => `<b class="g">+${l}</b> Glut pro Runde jeder Kugel.`,
-    max: 5,
-    cost: (l) => 6 + l * 5,
-  },
-  {
-    id: 'startSlots',
-    name: 'Freigelegte Rauten',
-    desc: (l) => `Starte mit <b>${l}</b> zusätzlichen freien Rauten.`,
-    max: 2,
-    cost: (l) => 15 + l * 15,
-  },
-  {
-    id: 'freeReroll',
-    name: 'Gefälligkeit des Händlers',
-    desc: (l) => `<b>${l}</b> kostenloses Neu-Würfeln pro Basar.`,
-    max: 1,
-    cost: () => 20,
-  },
-  {
-    id: 'extraArcanaOffer',
-    name: 'Drittes Auge',
-    desc: (l) => `<b>+${l}</b> Arkana-Angebot im Basar.`,
-    max: 1,
-    cost: () => 30,
-  },
-];
+/** Kosten der alten, stufenweisen Grimoire-Segnungen (vor dem Talentbaum) */
+const LEGACY_COST: Record<string, (lvl: number) => number> = {
+  startSouls: (l) => 4 + l * 4,
+  lapGlut: (l) => 6 + l * 5,
+  startSlots: (l) => 15 + l * 15,
+  freeReroll: () => 20,
+  extraArcanaOffer: () => 30,
+};
 
-export function metaBonuses(meta: MetaState): MetaBonuses {
-  const u = meta.upgrades;
-  return {
-    startSouls: (u.startSouls ?? 0) * 2,
-    startSlots: u.startSlots ?? 0,
-    lapGlut: u.lapGlut ?? 0,
-    freeReroll: u.freeReroll ?? 0,
-    extraArcanaOffer: u.extraArcanaOffer ?? 0,
-  };
+/** Erstattet alte Segnungen als Asche, damit sie im Talentbaum neu verteilt werden können */
+export function refundLegacyUpgrades(meta: MetaState): number {
+  let refund = 0;
+  for (const [id, lvl] of Object.entries(meta.upgrades ?? {})) {
+    const cost = LEGACY_COST[id];
+    if (!cost) continue;
+    for (let l = 0; l < lvl; l++) refund += cost(l);
+  }
+  meta.ash += refund;
+  meta.upgrades = {};
+  return refund;
 }
 
 export function loadMeta(): MetaState {
@@ -189,6 +165,12 @@ export function loadMeta(): MetaState {
     m.settings = { ...DEFAULT_META_STATE.settings, ...m.settings };
     // Ältere Spielstände starten mit dem kleinen Start-Pool neu
     if (!m.insight?.unlocked) m.insight = { xp: 0, unlocked: [...STARTER] };
+    // Umstieg auf den Talentbaum: alte Segnungen werden erstattet
+    if (!Array.isArray(m.talents)) {
+      m.talents = [];
+      const refund = refundLegacyUpgrades(m);
+      if (refund > 0) m.legacyRefund = refund;
+    }
     return m;
   } catch {
     return structuredClone(DEFAULT_META_STATE);
