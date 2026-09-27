@@ -1,0 +1,75 @@
+import { sfx } from '../../audio/sfx';
+import { circleName } from '../../core/run';
+import { WheelView } from '../../render/wheel';
+import type { App } from '../app';
+import { modal } from '../components';
+import { h } from '../dom';
+import { glyphSvg } from '../icons';
+import { showHelp } from './menu';
+
+export function renderTitle(app: App): () => void {
+  const root = h('div', { class: 'screen title' });
+  const run = app.run && (app.run.phase === 'ritual' || app.run.phase === 'shop') ? app.run : null;
+  root.innerHTML = `
+    <div class="title-wheel" data-wheel></div>
+    <div class="title-content">
+      <div class="title-kicker">Ein Roulette-Roguelite der Verdammnis</div>
+      <h1 class="logo">Teufels<span>rad</span></h1>
+      <div class="title-sub">Setze deine Seele. Dreh das Rad. Jage die Unendlichkeit.</div>
+      <div class="title-buttons" data-buttons></div>
+      <div class="title-stats">
+        <span>${glyphSvg('flame')} Asche <b>${app.meta.ash}</b></span>
+        <span>${glyphSvg('skull')} Runs <b>${app.meta.runs}</b></span>
+        <span>${glyphSvg('tower')} Bester Kreis <b>${app.meta.bestCircle || '–'}</b></span>
+        <span>${glyphSvg('pentagram')} Beste Drehung <b>${app.bestSpinText()}</b></span>
+      </div>
+    </div>
+    <button class="icon-btn sound-btn" data-sound aria-label="Ton">${glyphSvg(app.meta.sound ? 'bell' : 'feather')}</button>`;
+  app.root.append(root);
+
+  const view = new WheelView(root.querySelector('[data-wheel]') as HTMLElement);
+  view.wheelSpeed = -0.12;
+  view.unlocked = 8;
+  view.sigils = [
+    { uid: 1, id: 'glut', level: 2 },
+    { uid: 2, id: 'spiegel', level: 1 },
+    { uid: 3, id: 'pentagramm', level: 3 },
+    { uid: 4, id: 'tempo', level: 1 },
+    { uid: 5, id: 'irrlicht', level: 2 },
+    { uid: 6, id: 'echo', level: 1 },
+    { uid: 7, id: 'blut', level: 2 },
+    { uid: 8, id: 'kette', level: 1 },
+  ];
+  view.restPocket = 0;
+  view.hot = 0.4;
+
+  const btns = root.querySelector('[data-buttons]') as HTMLElement;
+  const add = (label: string, cls: string, fn: () => void, sub?: string) => {
+    const b = h('button', { class: `btn ${cls}`, html: `${label}${sub ? `<small>${sub}</small>` : ''}` });
+    b.addEventListener('click', () => {
+      sfx.unlock();
+      sfx.click();
+      fn();
+    });
+    btns.append(b);
+  };
+  if (run) add('Fortsetzen', 'primary big', () => app.resume(), `Kreis ${run.circle} · ${circleName(run.circle)}`);
+  add(run ? 'Neuer Pakt' : 'Pakt schließen', run ? 'big' : 'primary big', () => {
+    if (run) {
+      modal('<div class="modal-title">Neuen Run beginnen?</div><p class="muted">Dein laufender Run geht verloren.</p>', [
+        { label: 'Abbrechen', cls: 'ghost' },
+        { label: 'Neu beginnen', cls: 'danger', onClick: () => app.startNewRun() },
+      ]);
+    } else app.startNewRun();
+  });
+  add('Grimoire', '', () => app.show('grimoire'), `${app.meta.ash} Asche`);
+  add('Kodex', '', () => app.show('codex'));
+  add('Regeln', 'ghost', () => showHelp());
+
+  root.querySelector('[data-sound]')!.addEventListener('click', (e) => {
+    const on = app.toggleSound();
+    (e.currentTarget as HTMLElement).innerHTML = glyphSvg(on ? 'bell' : 'feather');
+  });
+
+  return () => view.dispose();
+}

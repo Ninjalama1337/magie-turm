@@ -1,8 +1,0 @@
-{
-  "appId": "de.ninjalama.magieturm",
-  "appName": "Magie-Turm",
-  "webDir": "www",
-  "android": {
-    "allowMixedContent": false
-  }
-}
