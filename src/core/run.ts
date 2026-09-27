@@ -1,5 +1,6 @@
 import Decimal from 'break_eternity.js';
 import { ARCANA, ARCANA_BY_ID } from '../content/arcana';
+import { heroOf } from '../content/heroes';
 import { EMPTY_META, fullMeta } from '../content/talents';
 import { DEMON_BY_ID, DEMONS, LUCIFER } from '../content/demons';
 import { Rng } from './rng';
@@ -79,6 +80,8 @@ export interface RunOptions {
   omens?: string[];
   /** Verfügbarer Karten-Pool (Freischaltungen); ohne Angabe ist alles verfügbar */
   pool?: string[];
+  /** Beschwörer; Herausforderungen nutzen immer den Wanderer */
+  hero?: string;
 }
 
 export function newRun(seed: number, metaIn: Partial<MetaBonuses> = DEFAULT_META, opts: RunOptions = {}): RunState {
@@ -94,6 +97,7 @@ export function newRun(seed: number, metaIn: Partial<MetaBonuses> = DEFAULT_META
     potions: [],
     buffs: freshBuffs(),
     pool: opts.pool ? [...opts.pool] : undefined,
+    hero: opts.hero && opts.hero !== 'wanderer' ? opts.hero : undefined,
     seed,
     rngState: 0,
     circle: 1,
@@ -126,6 +130,7 @@ export function newRun(seed: number, metaIn: Partial<MetaBonuses> = DEFAULT_META
     lastBet: { kind: 'red' },
   };
   run.sigils[0] = { uid: run.uid++, id: 'glut', level: 1 };
+  heroOf(run).start?.(run, rng);
   wheelOf(run).start?.(run);
   // Grimoire: Reliquie – zufällige seltene Arkana aus dem freigeschalteten Pool
   for (let k = 0; k < meta.startRare; k++) {

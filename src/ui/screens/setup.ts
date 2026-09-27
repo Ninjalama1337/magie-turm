@@ -1,4 +1,5 @@
 import { sfx } from '../../audio/sfx';
+import { HEROES, HERO_BY_ID, type HeroProgress } from '../../content/heroes';
 import { STAKES } from '../../content/stakes';
 import { maxStakeFor, saveMeta } from '../../core/save';
 import { WHEELS } from '../../core/wheel';
@@ -12,6 +13,9 @@ export function renderSetup(app: App): () => void {
   const meta = app.meta;
   let wheelIdx = Math.max(0, WHEELS.findIndex((w) => w.id === (meta.seen.find((s) => s.startsWith('lastWheel:'))?.slice(10) ?? 'euro')));
   let stake = 1;
+  const progress: HeroProgress = { runs: meta.runs, bestCircle: meta.bestCircle, victories: meta.victories, insightXp: meta.insight.xp };
+  const lastHero = meta.seen.find((s) => s.startsWith('lastHero:'))?.slice(9) ?? 'wanderer';
+  let hero = HERO_BY_ID[lastHero]?.unlocked(progress) ? lastHero : 'wanderer';
 
   const root = h('div', { class: 'screen setup' });
   root.innerHTML = `
@@ -27,6 +31,11 @@ export function renderSetup(app: App): () => void {
     </section>
     <section class="panel wheel-info" data-info></section>
     <div class="wheel-dots" data-dots></div>
+    <section class="panel">
+      <div class="panel-head"><h2>Beschwörer</h2><span class="hint">Wer schließt den Pakt?</span></div>
+      <div class="heroes" data-heroes></div>
+      <div class="hero-info" data-hinfo></div>
+    </section>
     <section class="panel">
       <div class="panel-head"><h2>Höllenstufe</h2><span class="hint">Gewinne eine Stufe, um die nächste freizuschalten.</span></div>
       <div class="stakes" data-stakes></div>
@@ -81,13 +90,15 @@ export function renderSetup(app: App): () => void {
       .map((s) => `<span>${roman(s.level)}: ${s.desc}</span>`)
       .join('');
 
+    renderHeroes();
+
     const go = q('go');
     go.innerHTML = '';
     if (unlocked) {
       go.append(
         h('button', {
           class: 'btn primary big',
-          html: `Pakt schließen<small>${w.name} · Stufe ${roman(stake)}</small>`,
+          html: `Pakt schließen<small>${HERO_BY_ID[hero].name} · ${w.name} · Stufe ${roman(stake)}</small>`,
           onclick: () => begin(),
         }),
       );
@@ -110,12 +121,39 @@ export function renderSetup(app: App): () => void {
     }
   }
 
+  function renderHeroes(): void {
+    const el = q('heroes');
+    el.innerHTML = '';
+    for (const x of HEROES) {
+      const open = x.unlocked(progress);
+      const b = h('button', {
+        class: `hero${x.id === hero ? ' sel' : ''}${open ? '' : ' locked'}`,
+        style: `--hc:${x.color}`,
+        html: `${glyphSvg(open ? x.glyph : 'chain', 'glyph')}<span>${open ? x.name.replace(/^(Der|Die) /, '') : '???'}</span>`,
+      });
+      b.addEventListener('click', () => {
+        if (!open) {
+          q('hinfo').innerHTML = `<p class="muted">${glyphSvg('chain')} <b>Versiegelt.</b> ${x.unlockHint}</p>`;
+          return;
+        }
+        hero = x.id;
+        sfx.click();
+        render();
+      });
+      el.append(b);
+    }
+    const d = HERO_BY_ID[hero];
+    q('hinfo').innerHTML = `<div class="hero-title" style="--hc:${d.color}"><b>${d.name}</b><span>${d.title}</span></div><ul class="hero-perks">${d.perks.map((p) => `<li>${p}</li>`).join('')}</ul>`;
+  }
+
   function begin(): void {
     const w = WHEELS[wheelIdx];
     const start = () => {
       meta.seen = meta.seen.filter((s) => !s.startsWith('lastWheel:'));
       meta.seen.push(`lastWheel:${w.id}`);
-      app.startRun({ wheel: w.id, stake });
+      meta.seen = meta.seen.filter((s) => !s.startsWith('lastHero:'));
+      meta.seen.push(`lastHero:${hero}`);
+      app.startRun({ wheel: w.id, stake, hero });
     };
     if (app.run && (app.run.phase === 'ritual' || app.run.phase === 'shop')) {
       modal('<div class="modal-title">Neuen Run beginnen?</div><p class="muted">Dein laufender Run geht verloren.</p>', [

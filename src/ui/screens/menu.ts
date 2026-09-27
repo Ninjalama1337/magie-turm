@@ -3,6 +3,7 @@ import { modal } from '../components';
 import { sfx } from '../../audio/sfx';
 import { h } from '../dom';
 import { toast } from '../popups';
+import { exportSave, parseSave, saveRun } from '../../core/save';
 
 export function showHelp(): void {
   const body = h('div', { class: 'help' });
@@ -68,7 +69,8 @@ export function showSettings(app: App): void {
     <label class="set-row"><span>Bildschirmwackeln</span><input type="checkbox" data-k="shake" ${s.shake ? 'checked' : ''}></label>
     <label class="set-row"><span>Reduzierte Effekte</span><input type="checkbox" data-k="reducedFx" ${s.reducedFx ? 'checked' : ''}></label>
     <label class="set-row"><span>Standard-Tempo</span><select data-k="speed">${[1, 2, 4].map((v) => `<option value="${v}" ${app.meta.speed === v ? 'selected' : ''}>${v}×</option>`).join('')}</select></label>
-    <button class="btn ghost small" data-reset-tut>Tutorial erneut zeigen</button>`;
+    <button class="btn ghost small" data-reset-tut>Tutorial erneut zeigen</button>
+    <div class="set-save"><span>Spielstand</span><button class="btn ghost small" data-export>Exportieren</button><button class="btn ghost small" data-import>Importieren</button></div>`;
   body.addEventListener('input', (e) => {
     const t = e.target as HTMLInputElement;
     const k = t.dataset.k;
@@ -85,5 +87,76 @@ export function showSettings(app: App): void {
     app.saveAll();
     toast('Das Tutorial erscheint beim nächsten Ritual.');
   });
+  body.querySelector('[data-export]')!.addEventListener('click', () => showExport(app));
+  body.querySelector('[data-import]')!.addEventListener('click', () => showImport(app));
   modal(body, [{ label: 'Fertig', cls: 'primary' }]);
+}
+
+/** Spielstand als Code anzeigen und kopieren */
+export function showExport(app: App): void {
+  app.saveAll();
+  const code = exportSave(app.meta, app.run);
+  const body = h('div', { class: 'save-io' });
+  body.innerHTML = `
+    <div class="modal-kicker">Spielstand sichern</div>
+    <div class="modal-title">Dein Seelenvertrag</div>
+    <p class="muted">Kopiere diesen Code und bewahre ihn auf. Mit „Importieren“ holst du deinen Fortschritt auf jedes Gerät zurück, auch nach einer Neuinstallation.</p>
+    <textarea readonly rows="5" data-code></textarea>`;
+  const ta = body.querySelector('[data-code]') as HTMLTextAreaElement;
+  ta.value = code;
+  ta.addEventListener('focus', () => ta.select());
+  modal(body, [
+    { label: 'Schließen', cls: 'ghost' },
+    {
+      label: 'Kopieren',
+      cls: 'primary',
+      onClick: () => {
+        const done = () => toast('Code kopiert.');
+        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(code).then(done, () => fallbackCopy(ta, done));
+        else fallbackCopy(ta, done);
+      },
+    },
+  ]);
+}
+
+function fallbackCopy(ta: HTMLTextAreaElement, done: () => void): void {
+  ta.select();
+  try {
+    if (document.execCommand('copy')) done();
+    else toast('Bitte den Code manuell kopieren.');
+  } catch {
+    toast('Bitte den Code manuell kopieren.');
+  }
+}
+
+/** Code einfügen und Spielstand ersetzen */
+export function showImport(app: App): void {
+  const body = h('div', { class: 'save-io' });
+  body.innerHTML = `
+    <div class="modal-kicker">Spielstand laden</div>
+    <div class="modal-title">Vertrag einlösen</div>
+    <p class="muted">Füge einen exportierten Code ein. <b class="bad">Dein aktueller Fortschritt wird ersetzt.</b></p>
+    <textarea rows="5" placeholder="TEUFELSRAD1:…" data-code></textarea>`;
+  const ta = body.querySelector('[data-code]') as HTMLTextAreaElement;
+  modal(body, [
+    { label: 'Abbrechen', cls: 'ghost' },
+    {
+      label: 'Laden',
+      cls: 'danger',
+      onClick: () => {
+        const data = parseSave(ta.value);
+        if (!data) {
+          toast('Ungültiger Code.');
+          return true;
+        }
+        app.meta = data.meta;
+        app.run = data.run;
+        saveRun(data.run);
+        app.saveAll();
+        app.applySettings();
+        toast(`Spielstand geladen: ${data.meta.ash} Asche, ${data.meta.runs} Runs.`);
+        app.show('title');
+      },
+    },
+  ]);
 }

@@ -27,6 +27,25 @@ Mit **Asche** aus beendeten Runs und Erfolgen wächst im **Grimoire** ein **Tale
 - 6 Kessel, 5 Höllenstufen
 - 12 Omen, 21 Erfolge
 
+### Beschwörer
+Vor jedem Run wählst du, wer den Pakt schließt. Jeder Beschwörer hat ein eigenes Start-Siegel und eigene Vor- und Nachteile:
+
+| Beschwörer | Besonderheit | Freischaltung |
+|---|---|---|
+| Der Wanderer | Klassisch | von Beginn an |
+| Die Hexe | 2 Start-Tränke, +1 Trank-Platz, günstigere Tränke, −2 Seelen | 3 Runs |
+| Der Spieler | Knochenwürfel; Zahl ×27, Dutzend ×4, einfache Einsätze nur ×1,6 | Kreis 3 |
+| Der Geisterseher | Irrlichtsiegel, Start-Irrlicht, +2 Irrlicht-Limit, −2 Glut/Runde | Erkenntnis-Stufe 2 |
+| Die Blutgräfin | Blutsiegel, +2 Basis-Fluch, −1 Seele je Ritual | Kreis 5 |
+| Der Alchemist | Freies Neu-Würfeln, +1 Arkana- und Siegel-Angebot, nur 4 Arkana-Plätze | Luzifer besiegt |
+
+Herausforderungen nutzen immer den Wanderer.
+
+### Siegel-Synergien
+Jedes Siegel gehört zu einem **Element** (Flamme, Blut, Sturm, Geist, Gold, Arkan).
+- **Resonanz:** Liegt ein Siegel direkt neben einem Siegel desselben Elements, wirkt es eine Stufe stärker.
+- **Bünde:** Mehrere Siegel eines Elements auf freien Rauten schalten Boni frei, zum Beispiel 3× Flamme für +3 Glut pro Runde oder 5× Flamme für ×1,5 Glut am Drehende.
+
 ### Kessel & Höllenstufen
 | Kessel | Besonderheit |
 |---|---|
@@ -51,6 +70,7 @@ Täglich und wöchentlich gibt es einen festen Seed mit Kessel, Stufe und Omen, 
 ### Weitere Systeme
 - **Editionen:** Arkana erscheinen im Basar manchmal als Folie, Holo, Polychrom oder Negativ.
 - **Tränke:** Einmal-Effekte vor einer Drehung oder im Basar.
+- **Spielstand-Export:** In den Einstellungen lässt sich der komplette Fortschritt als Code exportieren und auf einem anderen Gerät oder nach einer Neuinstallation wieder importieren.
 - **Bedienung:** Drag & Drop, Hover-Tooltips am Desktop, geführtes Tutorial, Einstellungen (Musik, Effekte, Wackeln, reduzierte Effekte).
 
 ## Entwicklung

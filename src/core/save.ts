@@ -203,3 +203,41 @@ export function recordChallenge(meta: MetaState, key: string, circle: number, sc
   }
   return meta.dailies[key];
 }
+
+// ---------------------------------------------------------------- Export/Import
+
+const EXPORT_PREFIX = 'TEUFELSRAD1:';
+
+function toBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+function fromBase64(b64: string): string {
+  const bin = atob(b64);
+  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+}
+
+/** Spielstand als kopierbarer Code (Meta-Fortschritt + laufender Run) */
+export function exportSave(meta: MetaState, run: RunState | null): string {
+  const payload = { meta, run: run && run.phase !== 'gameover' ? serializeRun(run) : null };
+  return EXPORT_PREFIX + toBase64(JSON.stringify(payload));
+}
+
+/** Liest einen exportierten Code; null bei ungültigem Code */
+export function parseSave(code: string): { meta: MetaState; run: RunState | null } | null {
+  try {
+    const trimmed = code.replace(/\s+/g, '');
+    if (!trimmed.startsWith(EXPORT_PREFIX)) return null;
+    const data = JSON.parse(fromBase64(trimmed.slice(EXPORT_PREFIX.length))) as { meta?: MetaState; run?: string | null };
+    if (!data.meta || typeof data.meta.ash !== 'number' || !Array.isArray(data.meta.talents)) return null;
+    const meta = { ...structuredClone(DEFAULT_META_STATE), ...data.meta } as MetaState;
+    meta.settings = { ...DEFAULT_META_STATE.settings, ...meta.settings };
+    const run = data.run ? deserializeRun(data.run) : null;
+    return { meta, run };
+  } catch {
+    return null;
+  }
+}

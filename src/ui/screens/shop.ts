@@ -1,6 +1,7 @@
 import { sfx } from '../../audio/sfx';
 import { DEMON_BY_ID } from '../../content/demons';
 import { PACT_BY_ID } from '../../content/pacts';
+import { elementOf, resonance } from '../../content/elements';
 import { SIGIL_BY_ID } from '../../content/sigils';
 import { fmt } from '../../core/num';
 import { circleName, nextRitual, ritualTarget, withRng } from '../../core/run';
@@ -45,6 +46,7 @@ import {
   potionChip,
   potionDetail,
   sigilDetail,
+  bondsBar,
   sigilTile,
 } from '../components';
 import { h, restartAnim, roman } from '../dom';
@@ -76,7 +78,8 @@ export function renderShop(app: App): () => void {
       <div class="arcana-row owned" data-arcana></div>
     </section>
     <section class="panel runes-panel">
-      <div class="panel-head"><h2>Rauten</h2><span class="hint">Die Kugel passiert sie in dieser Reihenfolge. Tippe zwei Rauten an, um sie zu tauschen.</span></div>
+      <div class="panel-head"><h2>Rauten</h2><span class="hint">Die Kugel passiert sie in dieser Reihenfolge. Tippe zwei Rauten an, um sie zu tauschen. Gleiche Elemente nebeneinander erzeugen <b class="x">Resonanz</b>.</span></div>
+      <div data-bonds></div>
       <div class="runes-body">
         <div class="wheel-mini" data-wheel></div>
         <div class="runes" data-runes></div>
@@ -110,7 +113,11 @@ export function renderShop(app: App): () => void {
     renderNext();
     view.sigils = run.sigils;
     view.unlocked = run.sigilUnlocked;
+    view.resonant = resonance(run);
     view.enchants = { ...run.enchants };
+    const bondsEl = q('bonds');
+    bondsEl.innerHTML = '';
+    bondsEl.append(bondsBar(run));
     app.saveAll();
   }
 
@@ -257,10 +264,11 @@ export function renderShop(app: App): () => void {
   function renderRunes(): void {
     const el = q('runes');
     el.innerHTML = '';
+    const reso = resonance(run);
     for (let i = 0; i < run.sigils.length; i++) {
       const s = run.sigils[i];
       const locked = i >= run.sigilUnlocked;
-      const tile = h('div', { class: `rune${locked ? ' locked' : ''}${s ? ' filled' : ''}${selectedSlot === i ? ' sel' : ''}` });
+      const tile = h('div', { class: `rune${locked ? ' locked' : ''}${s ? ' filled' : ''}${reso[i] ? ' reso' : ''}${selectedSlot === i ? ' sel' : ''}` });
       tile.style.setProperty('--sc', s ? SIGIL_COLOR[s.id] ?? '#fff' : '#6d5a44');
       if (locked) {
         const first = i === run.sigilUnlocked;
@@ -276,7 +284,8 @@ export function renderShop(app: App): () => void {
         }
       } else if (s) {
         const def = SIGIL_BY_ID[s.id];
-        tile.innerHTML = `<span class="rune-n">${i + 1}</span><div class="rhomb">${glyphSvg(def.glyph)}</div>${levelPips(s.level)}`;
+        const el = elementOf(s.id);
+        tile.innerHTML = `<span class="rune-n">${i + 1}</span>${el ? `<span class="rune-el" style="--ec:${el.color}" title="${el.name}">${glyphSvg(el.glyph)}</span>` : ''}<div class="rhomb">${glyphSvg(def.glyph)}</div>${levelPips(s.level)}`;
         tile.addEventListener('click', () => clickSlot(i));
       } else {
         tile.innerHTML = `<span class="rune-n">${i + 1}</span><span class="rune-empty">leer</span>`;
@@ -299,7 +308,7 @@ export function renderShop(app: App): () => void {
       selectedSlot = -1;
       renderRunes();
       if (s) {
-        modal(sigilDetail(s.id, s.level), [
+        modal(sigilDetail(s.id, s.level, { resonant: resonance(run)[i] }), [
           { label: 'Schließen', cls: 'ghost' },
           {
             label: `Verkaufen · +${sigilSellValue(run, i)}`,

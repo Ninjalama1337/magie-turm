@@ -34,6 +34,8 @@ export class WheelView {
   restPocket: number | null = null;
   sigils: (SigilInst | null)[] = [];
   unlocked = 3;
+  /** Rauten mit Resonanz (Nachbar gleichen Elements) */
+  resonant: boolean[] = [];
   blockedSlot = -1;
   enchants: Record<number, Enchant> = {};
   flash: number[] = new Array(SLOT_COUNT).fill(0);
@@ -508,6 +510,22 @@ export class WheelView {
     g.lineWidth = Math.max(1, R * (inst ? 0.008 : 0.005));
     g.globalAlpha = locked ? 0.7 : 1;
     g.stroke();
+    if (inst && !locked && this.resonant[i]) {
+      // Resonanz: zweiter, pulsierender Rahmen
+      const k = 1.28 + Math.sin(performance.now() / 380 + i) * 0.05;
+      g.save();
+      g.globalAlpha = 0.75;
+      g.setLineDash([R * 0.018, R * 0.012]);
+      g.lineWidth = Math.max(1, R * 0.006);
+      g.beginPath();
+      g.moveTo(0, -h * k);
+      g.lineTo(w * k, 0);
+      g.lineTo(0, h * k);
+      g.lineTo(-w * k, 0);
+      g.closePath();
+      g.stroke();
+      g.restore();
+    }
     g.rotate(-(a + Math.PI / 2));
 
     const gs = R * 0.09 * (1 + f * 0.3);

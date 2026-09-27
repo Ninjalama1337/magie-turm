@@ -128,6 +128,8 @@ export interface RunState {
   buffs: Buffs;
   /** Freigeschaltete Elemente beim Run-Start (undefined = alles verfügbar) */
   pool?: string[];
+  /** Gewählter Beschwörer (undefined = Der Wanderer) */
+  hero?: string;
   seed: number;
   rngState: number;
   circle: number;
@@ -174,6 +176,7 @@ export interface Stats {
   numberPay: number;
   hellFluch: number;
   endFluch: number;
+  endGlut: number;
   ritualBonus: number;
   sellFull: boolean;
   upgradeDiscount: number;
