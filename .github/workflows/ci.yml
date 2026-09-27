@@ -29,8 +29,8 @@ jobs:
         run: npm run typecheck
       - name: Unit-Tests
         run: npm test
-      - name: Balance-Simulation
-        run: npm run sim -- runs=100
+      - name: Balance-Dashboard
+        run: npm run -s report -- runs=100 | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Build
         run: npm run build
       - name: E2E (Playwright)
@@ -104,7 +104,11 @@ jobs:
           path: teufelsrad.apk
       - name: Changelog erzeugen
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-        run: node scripts/changelog.mjs "${{ steps.ver.outputs.version }}" | tee release-notes.md
+        run: |
+          node scripts/changelog.mjs "${{ steps.ver.outputs.version }}" > release-notes.md
+          # Balance-Dashboard des Builds an die Release-Notes hängen
+          { echo; echo '<details><summary>⚖️ Balance-Bericht</summary>'; echo; npm run -s report -- runs=150; echo; echo '</details>'; } >> release-notes.md
+          cat release-notes.md
       - name: GitHub Release (jeder Push auf main und jeder v*-Tag)
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: softprops/action-gh-release@v2

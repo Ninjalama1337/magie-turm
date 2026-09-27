@@ -2,6 +2,7 @@
  * Aufruf: npm run sim [-- runs=500 bot=smart|dumb|sim pool=starter|<stufe> wheel=euro stake=1]
  * bot=sim bewertet Käufe per Simulation (langsam, aber realistischer bei großen Pools).
  */
+import { pathToFileURL } from 'node:url';
 import { ARCANA_BY_ID } from '../src/content/arcana';
 import { talentBonuses, TALENTS } from '../src/content/talents';
 import { LEVELS, STARTER } from '../src/content/unlocks';
@@ -9,6 +10,8 @@ import { fmt } from '../src/core/num';
 import { continueEndless, finishRitual, FINAL_CIRCLE, newRun, nextRitual, spin, withRng } from '../src/core/run';
 import {
   buy,
+  fuseArcana,
+  fusionOptions,
   canBuy,
   freeSigilSlot,
   reroll,
@@ -24,19 +27,29 @@ import { isBetAllowed, simulateSpin } from '../src/core/spin';
 import { computeStats } from '../src/core/stats';
 import type { Bet, RunState } from '../src/core/types';
 
-const args = Object.fromEntries(process.argv.slice(2).map((a) => a.split('=')));
+const isMain = import.meta.url === pathToFileURL(process.argv[1] ?? '').href;
+const args: Record<string, string> = isMain ? Object.fromEntries(process.argv.slice(2).map((a) => a.split('='))) : {};
+
+export function poolFor(p?: string): string[] | undefined {
+  return p === 'starter' ? STARTER : p ? [...STARTER, ...LEVELS.slice(0, Number(p)).flatMap((l) => l.items)] : undefined;
+}
+
+/** Konfiguration der Simulation (CLI oder Bericht) */
+export const cfg = {
+  bot: args.bot ?? 'smart',
+  maxCircle: Number(args.max ?? 14),
+  wheel: args.wheel ?? 'euro',
+  meta: args.talents === 'all' ? talentBonuses(TALENTS.map((t) => t.id)) : undefined,
+  stake: Number(args.stake ?? 1),
+  pool: poolFor(args.pool),
+  hero: args.hero as string | undefined,
+};
 const RUNS = Number(args.runs ?? 300);
-const BOT = args.bot ?? 'smart';
-const MAX_CIRCLE = Number(args.max ?? 14);
-const WHEEL = args.wheel ?? 'euro';
-const META = args.talents === 'all' ? talentBonuses(TALENTS.map((t) => t.id)) : undefined;
-const STAKE = Number(args.stake ?? 1);
-const POOL = args.pool === 'starter' ? STARTER : args.pool ? [...STARTER, ...LEVELS.slice(0, Number(args.pool)).flatMap((l) => l.items)] : undefined;
 
 const RARITY_SCORE = { common: 1, uncommon: 2, rare: 3, legendary: 4 };
 
 function chooseBet(run: RunState): Bet {
-  if (BOT === 'dumb') return { kind: 'red' };
+  if (cfg.bot === 'dumb') return { kind: 'red' };
   const ids = new Set(run.arcana.map((a) => a.id));
   const allowNumber = isBetAllowed(run, { kind: 'number', number: 0 });
   if (allowNumber && ids.has('stern')) return { kind: 'number', number: 0 };
@@ -98,7 +111,8 @@ function simShopTurn(run: RunState): void {
 }
 
 function shopTurn(run: RunState): void {
-  if (BOT === 'sim') return simShopTurn(run);
+  for (const r of fusionOptions(run)) fuseArcana(run, r);
+  if (cfg.bot === 'sim') return simShopTurn(run);
   const shop = run.shop!;
   for (let pass = 0; pass < 3; pass++) {
     const offers = shop.offers
@@ -126,8 +140,8 @@ function shopTurn(run: RunState): void {
   }
 }
 
-function playRun(seed: number): { circle: number; ritual: number; best: string } {
-  const run = newRun(seed, META, { wheel: WHEEL, stake: STAKE, pool: POOL });
+export function playRun(seed: number): { circle: number; ritual: number; best: string; arcana: string[] } {
+  const run = newRun(seed, cfg.meta, { wheel: cfg.wheel, stake: cfg.stake, pool: cfg.pool, hero: cfg.hero });
   for (;;) {
     while (run.potions.length) withRng(run, (rng) => usePotion(run, 0, rng).ok || run.potions.shift());
     const { outcome } = spin(run, chooseBet(run), true);
@@ -135,28 +149,30 @@ function playRun(seed: number): { circle: number; ritual: number; best: string }
     if (outcome === 'won') {
       finishRitual(run);
       if (run.phase === 'victory') continueEndless(run);
-      if (run.circle >= MAX_CIRCLE) break;
+      if (run.circle >= cfg.maxCircle) break;
       shopTurn(run);
       nextRitual(run);
     }
   }
-  return { circle: run.circle, ritual: run.ritual, best: fmt(run.stats.bestSpin) };
+  return { circle: run.circle, ritual: run.ritual, best: fmt(run.stats.bestSpin), arcana: run.arcana.map((a) => a.id) };
 }
 
-const dist = new Map<number, number>();
-let sum = 0;
-const t0 = Date.now();
-for (let s = 1; s <= RUNS; s++) {
-  const r = playRun(s * 7919);
-  dist.set(r.circle, (dist.get(r.circle) ?? 0) + 1);
-  sum += r.circle;
-}
-console.log(`Pool: ${args.pool ?? 'alles'}, Kessel: ${WHEEL}, Stufe: ${STAKE}, Bot: ${BOT}, Runs: ${RUNS}, Dauer: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-console.log(`Ø erreichter Kreis: ${(sum / RUNS).toFixed(2)}`);
-let cum = RUNS;
-for (let c = 1; c <= MAX_CIRCLE; c++) {
-  const n = dist.get(c) ?? 0;
-  const label = c <= FINAL_CIRCLE ? `Kreis ${c}` : `Jenseits ${c - FINAL_CIRCLE}`;
-  console.log(`${label.padEnd(12)} erreicht: ${((cum / RUNS) * 100).toFixed(1).padStart(5)} %   dort gescheitert: ${n}`);
-  cum -= n;
+if (isMain) {
+  const dist = new Map<number, number>();
+  let sum = 0;
+  const t0 = Date.now();
+  for (let s = 1; s <= RUNS; s++) {
+    const r = playRun(s * 7919);
+    dist.set(r.circle, (dist.get(r.circle) ?? 0) + 1);
+    sum += r.circle;
+  }
+  console.log(`Pool: ${args.pool ?? 'alles'}, Kessel: ${cfg.wheel}, Stufe: ${cfg.stake}, Bot: ${cfg.bot}, Runs: ${RUNS}, Dauer: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  console.log(`Ø erreichter Kreis: ${(sum / RUNS).toFixed(2)}`);
+  let cum = RUNS;
+  for (let c = 1; c <= cfg.maxCircle; c++) {
+    const n = dist.get(c) ?? 0;
+    const label = c <= FINAL_CIRCLE ? `Kreis ${c}` : `Jenseits ${c - FINAL_CIRCLE}`;
+    console.log(`${label.padEnd(12)} erreicht: ${((cum / RUNS) * 100).toFixed(1).padStart(5)} %   dort gescheitert: ${n}`);
+    cum -= n;
+  }
 }

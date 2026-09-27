@@ -1,5 +1,5 @@
 import { ARCANA_BY_ID } from '../content/arcana';
-import { DEMON_BY_ID } from '../content/demons';
+import { demonById } from '../content/demons';
 import { OMEN_BY_ID } from '../content/omens';
 import { PACT_BY_ID } from '../content/pacts';
 import { applyBonds } from '../content/elements';
@@ -47,7 +47,7 @@ export const BASE_STATS: Stats = {
 };
 
 export function currentDemon(run: RunState): DemonDef | null {
-  return run.demon ? DEMON_BY_ID[run.demon] ?? null : null;
+  return demonById(run.demon);
 }
 
 export function computeStats(run: RunState, withDemon = true): Stats {

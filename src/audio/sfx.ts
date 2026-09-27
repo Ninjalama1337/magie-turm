@@ -1,3 +1,5 @@
+import { Music } from './music';
+
 /** Prozedurale Soundeffekte über WebAudio – keine Assets nötig. */
 class Sfx {
   private ctx: AudioContext | null = null;
@@ -204,7 +206,7 @@ class Sfx {
     const out = this.music;
     const g = ctx.createGain();
     g.gain.value = 0;
-    g.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 3);
+    g.gain.linearRampToValueAtTime(0.03, ctx.currentTime + 3);
     const f = ctx.createBiquadFilter();
     f.type = 'lowpass';
     f.frequency.value = 380;
@@ -224,54 +226,21 @@ class Sfx {
     f.connect(g).connect(out);
     lfo.start();
 
-    // Ebene 2: Chor-Pad, blendet mit der Hitze ein
-    const padG = ctx.createGain();
-    padG.gain.value = 0;
-    const padF = ctx.createBiquadFilter();
-    padF.type = 'lowpass';
-    padF.frequency.value = 900;
-    const pads = [220, 261.6, 329.6, 220.8].map((fr) => {
-      const o = ctx.createOscillator();
-      o.type = 'sawtooth';
-      o.frequency.value = fr;
-      o.connect(padF);
-      o.start();
-      return o;
-    });
-    padF.connect(padG).connect(out);
-
-    // Ebene 3: Moll-Arpeggio (Taktgeber per Intervall)
-    const scale = [0, 3, 5, 7, 10, 12, 15];
-    let step = 0;
-    const timer = window.setInterval(() => {
-      if (this.heat < 0.25 || !this.enabled) return;
-      const semi = scale[(step * 3 + (step >> 2)) % scale.length];
-      step++;
-      const t = ctx.currentTime;
-      const o = ctx.createOscillator();
-      const eg = ctx.createGain();
-      o.type = 'triangle';
-      o.frequency.value = 220 * Math.pow(2, semi / 12);
-      eg.gain.setValueAtTime(0.0001, t);
-      eg.gain.exponentialRampToValueAtTime(0.03 * this.heat, t + 0.01);
-      eg.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-      o.connect(eg).connect(out);
-      o.start(t);
-      o.stop(t + 0.35);
-    }, 180);
+    // Musik: Orgel, Bass, Glocken; Arpeggio, Trommel und Chor mit der Hitze
+    const music = new Music(ctx, out);
+    music.setHeat(this.heat);
+    music.start();
 
     this.drone = {
       heat: (h) => {
-        padG.gain.linearRampToValueAtTime(0.025 * h, ctx.currentTime + 0.4);
+        music.setHeat(h);
         f.frequency.linearRampToValueAtTime(380 + 900 * h, ctx.currentTime + 0.4);
       },
       stop: () => {
-        clearInterval(timer);
+        music.stop();
         g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
-        padG.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
         setTimeout(() => {
           oscs.forEach((o) => o.stop());
-          pads.forEach((o) => o.stop());
           lfo.stop();
         }, 600);
       },

@@ -68,7 +68,7 @@ export const HEROES: HeroDef[] = [
     color: '#ffd76a',
     perks: [
       'Start mit dem <b>Knochenwürfel</b> statt des Glutsiegels.',
-      'Zahl zahlt <b class="x">×27</b> statt ×18, Dutzend <b class="x">×4</b> statt ×3.',
+      'Zahl zahlt <b class="x">×27</b> statt ×18, Dutzend <b class="x">×3,5</b> statt ×3.',
       'Farbe, Gerade/Ungerade und Hälfte zahlen nur <b class="bad">×1,6</b>.',
     ],
     unlockHint: 'Erreiche den 3. Höllenkreis.',
@@ -76,7 +76,7 @@ export const HEROES: HeroDef[] = [
     start: (run) => setStartSigil(run, 'wuerfel'),
     mod: (s) => {
       s.numberPay *= 1.5;
-      s.dozenPay += 1;
+      s.dozenPay += 0.5;
       s.colorPay -= 0.4;
       s.parityPay -= 0.4;
       s.halfPay -= 0.4;
@@ -90,13 +90,13 @@ export const HEROES: HeroDef[] = [
     color: '#7ef9ff',
     perks: [
       'Start mit dem <b>Irrlichtsiegel</b> statt des Glutsiegels.',
-      'Jede Drehung startet mit einem <b class="w">Irrlicht</b>, <b class="w">+2</b> maximale Irrlichter.',
-      '<b class="bad">−2 Glut</b> pro Runde.',
+      'Jede Drehung startet mit einem <b class="w">Irrlicht</b>.',
+      '<b class="bad">−4 Glut</b> pro Runde.',
     ],
     unlockHint: 'Erreiche Erkenntnis-Stufe 2.',
     unlocked: (p) => levelFor(p.insightXp) >= 2,
     start: (run) => setStartSigil(run, 'irrlicht'),
-    mod: (s) => ((s.startGhosts += 1), (s.ghostCap += 2), (s.lapGlut -= 2)),
+    mod: (s) => ((s.startGhosts += 1), (s.lapGlut -= 4)),
   },
   {
     id: 'graefin',
@@ -106,13 +106,16 @@ export const HEROES: HeroDef[] = [
     color: '#ff3b5c',
     perks: [
       'Start mit dem <b>Blutsiegel</b> statt des Glutsiegels.',
-      '<b class="f">+2 Basis-Fluch</b>.',
-      'Jedes Ritual <b class="bad">−1 Seele</b> Belohnung.',
+      '<b class="f">+1 Basis-Fluch</b>.',
+      'Jedes Ritual <b class="bad">−1 Seele</b> Belohnung, <b class="bad">−1 Tempo</b>, <b class="bad">−2 Start-Seelen</b>.',
     ],
     unlockHint: 'Erreiche den 5. Höllenkreis.',
     unlocked: (p) => p.bestCircle >= 5,
-    start: (run) => setStartSigil(run, 'blut'),
-    mod: (s) => ((s.baseFluch += 2), (s.rewardAdd -= 1)),
+    start: (run) => {
+      setStartSigil(run, 'blut');
+      run.souls = Math.max(0, run.souls - 2);
+    },
+    mod: (s) => ((s.baseFluch += 1), (s.rewardAdd -= 1), (s.tempo -= 1)),
   },
   {
     id: 'alchemist',

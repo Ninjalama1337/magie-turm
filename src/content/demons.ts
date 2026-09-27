@@ -1,4 +1,4 @@
-import type { DemonDef, Enchant, GlyphId } from '../core/types';
+import type { DemonMods, DemonDef, Enchant, GlyphId } from '../core/types';
 
 export const DEMONS: DemonDef[] = [
   {
@@ -111,6 +111,34 @@ export const LUCIFER: DemonDef = {
 export const DEMON_BY_ID: Record<string, DemonDef> = Object.fromEntries(
   [...DEMONS, LUCIFER].map((d) => [d.id, d]),
 );
+
+const merged: Record<string, DemonDef> = {};
+
+/** Liefert einen Dämon; „a+b“ ist ein Doppeldämon aus dem Jenseits mit den Regeln beider */
+export function demonById(id: string | null | undefined): DemonDef | null {
+  if (!id) return null;
+  if (DEMON_BY_ID[id]) return DEMON_BY_ID[id];
+  if (merged[id]) return merged[id];
+  const parts = id.split('+').map((p) => DEMON_BY_ID[p]).filter(Boolean);
+  if (parts.length < 2) return null;
+  const [a, b] = parts;
+  const mul = (x?: number, y?: number) => (x ?? 1) * (y ?? 1);
+  const mods: DemonMods = { ...a.mods, ...b.mods };
+  if (a.mods.targetMult || b.mods.targetMult) mods.targetMult = mul(a.mods.targetMult, b.mods.targetMult);
+  if (a.mods.fluchFactor || b.mods.fluchFactor) mods.fluchFactor = mul(a.mods.fluchFactor, b.mods.fluchFactor);
+  if (a.mods.glutFactor || b.mods.glutFactor) mods.glutFactor = mul(a.mods.glutFactor, b.mods.glutFactor);
+  if (a.mods.frictionAdd || b.mods.frictionAdd) mods.frictionAdd = (a.mods.frictionAdd ?? 0) + (b.mods.frictionAdd ?? 0);
+  if (a.mods.spinsAdd || b.mods.spinsAdd) mods.spinsAdd = (a.mods.spinsAdd ?? 0) + (b.mods.spinsAdd ?? 0);
+  merged[id] = {
+    id,
+    name: `${a.name} & ${b.name}`,
+    title: 'Doppeldämon des Jenseits',
+    glyph: a.glyph,
+    desc: `${a.desc}<br>${b.desc}`,
+    mods,
+  };
+  return merged[id];
+}
 
 export interface EnchantDef {
   id: Enchant;

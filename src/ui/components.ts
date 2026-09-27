@@ -1,5 +1,5 @@
 import { ARCANA_BY_ID } from '../content/arcana';
-import { DEMON_BY_ID, ENCHANT_BY_ID } from '../content/demons';
+import { demonById, ENCHANT_BY_ID } from '../content/demons';
 import { bonds, ELEMENTS, elementOf, resonance } from '../content/elements';
 import { FUSION_LEVEL, recipesWith } from '../content/fusions';
 import { PACT_BY_ID } from '../content/pacts';
@@ -215,7 +215,7 @@ export function potionDetail(id: string): string {
 }
 
 export function demonBanner(id: string): HTMLDivElement {
-  const d = DEMON_BY_ID[id];
+  const d = demonById(id)!;
   const el = h('div', { class: 'demon-banner' });
   el.innerHTML = `${glyphSvg(d.glyph, 'glyph')}<div><b>${d.name}</b>, ${d.title}<br><span>${d.desc}</span></div>`;
   return el;

@@ -1,5 +1,5 @@
 import { sfx } from '../../audio/sfx';
-import { DEMON_BY_ID } from '../../content/demons';
+import { demonById } from '../../content/demons';
 import { ARCANA_BY_ID } from '../../content/arcana';
 import { FUSION_PRICE } from '../../content/fusions';
 import { EVENT_BY_ID } from '../../content/events';
@@ -430,7 +430,7 @@ export function renderShop(app: App): () => void {
       nc++;
     }
     const names = ['Kleines Ritual', 'Großes Ritual', 'Dämonenritual'];
-    const demon = nr === 2 ? DEMON_BY_ID[run.circleDemon] : null;
+    const demon = nr === 2 ? demonById(run.circleDemon) : null;
     const el = q('next');
     el.innerHTML = `
       <div class="next-info">

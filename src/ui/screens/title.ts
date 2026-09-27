@@ -1,4 +1,5 @@
 import { sfx } from '../../audio/sfx';
+import { albumReady } from '../../content/album';
 import { circleName } from '../../core/run';
 import { WheelView } from '../../render/wheel';
 import type { App } from '../app';
@@ -58,7 +59,8 @@ export function renderTitle(app: App): () => void {
   if (run) add('Fortsetzen', 'primary big', () => app.resume(), `Kreis ${run.circle} · ${circleName(run.circle)}`);
   add(run ? 'Neuer Pakt' : 'Pakt schließen', run ? 'big' : 'primary big', () => app.show('setup'));
   add('Herausforderungen', '', () => app.show('challenge'), 'Täglich & wöchentlich');
-  add('Grimoire', '', () => app.show('grimoire'), `${app.meta.ash} Asche`);
+  const ready = albumReady(app.meta);
+  add('Grimoire', '', () => app.show('grimoire'), `${app.meta.ash} Asche${ready ? ` · ${ready} Belohnung${ready > 1 ? 'en' : ''}` : ''}`);
   add('Kodex', '', () => app.show('codex'), `${app.meta.achievements.length} Erfolge`);
   const row = h('div', { class: 'title-row' });
   row.append(

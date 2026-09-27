@@ -84,6 +84,12 @@ export interface MetaState {
   dailies: Record<string, DailyRecord>;
   settings: Settings;
   insight: Insight;
+  /** Gekaufte Kosmetik und Auswahl */
+  cosmetics: { owned: string[]; ball: string; rim: string };
+  /** Beschwörer, mit denen Luzifer besiegt wurde */
+  heroWins: string[];
+  /** Abgeholte Sammelalbum-Belohnungen */
+  album: string[];
   /** Letzte Runs (neueste zuerst) */
   history: RunRecord[];
   /** Summen über alle Runs */
@@ -158,6 +164,9 @@ export const DEFAULT_META_STATE: MetaState = {
   settings: { music: 0.6, sfx: 0.8, shake: true, reducedFx: false, haptics: true },
   insight: { xp: 0, unlocked: [...STARTER] },
   talents: [],
+  cosmetics: { owned: [], ball: 'ball:knochen', rim: 'rim:gold' },
+  album: [],
+  heroWins: [],
   history: [],
   totals: { spins: 0, rituals: 0, hits: 0, maxLaps: 0, maxGhosts: 0 },
 };
@@ -196,6 +205,9 @@ export function loadMeta(): MetaState {
     const m = { ...structuredClone(DEFAULT_META_STATE), ...JSON.parse(raw) } as MetaState;
     m.settings = { ...DEFAULT_META_STATE.settings, ...m.settings };
     m.totals = { ...DEFAULT_META_STATE.totals, ...m.totals };
+    m.cosmetics = { ...DEFAULT_META_STATE.cosmetics, ...m.cosmetics };
+    if (!Array.isArray(m.album)) m.album = [];
+    if (!Array.isArray(m.heroWins)) m.heroWins = [];
     if (!Array.isArray(m.history)) m.history = [];
     // Ältere Spielstände starten mit dem kleinen Start-Pool neu
     if (!m.insight?.unlocked) m.insight = { xp: 0, unlocked: [...STARTER] };
@@ -270,6 +282,9 @@ export function parseSave(code: string): { meta: MetaState; run: RunState | null
     const meta = { ...structuredClone(DEFAULT_META_STATE), ...data.meta } as MetaState;
     meta.settings = { ...DEFAULT_META_STATE.settings, ...meta.settings };
     meta.totals = { ...DEFAULT_META_STATE.totals, ...meta.totals };
+    meta.cosmetics = { ...DEFAULT_META_STATE.cosmetics, ...meta.cosmetics };
+    if (!Array.isArray(meta.album)) meta.album = [];
+    if (!Array.isArray(meta.heroWins)) meta.heroWins = [];
     if (!Array.isArray(meta.history)) meta.history = [];
     const run = data.run ? deserializeRun(data.run) : null;
     return { meta, run };
@@ -295,6 +310,7 @@ export function recordRun(meta: MetaState, run: RunState, cause: string): RunRec
     cause,
   };
   meta.history = [rec, ...meta.history].slice(0, HISTORY_MAX);
+  if (rec.victory && rec.mode === 'normal' && !meta.heroWins.includes(rec.hero)) meta.heroWins.push(rec.hero);
   const t = meta.totals;
   t.spins += run.stats.spins;
   t.rituals += run.stats.ritualsWon;

@@ -198,6 +198,14 @@ async function scenario(browser, name, viewport) {
   await page.waitForTimeout(200);
   ok((await page.locator('.talent.owned').count()) === 1, 'Talent gekauft');
   await page.screenshot({ path: `e2e/shots/${name}-9c-grimoire.png`, fullPage: true });
+  await page.locator('[data-view="relics"]').click();
+  await page.waitForSelector('.relics');
+  ok((await page.locator('.album-row').count()) >= 7, 'Sammelalbum in der Reliquienkammer');
+  await page.evaluate(() => (window.__app.meta.ash = 100));
+  await page.locator('.relic', { hasText: 'Glutkugel' }).click();
+  await page.waitForTimeout(150);
+  ok(await page.evaluate(() => window.__app.meta.cosmetics.ball === 'ball:glut'), 'Kosmetik gekauft und angelegt');
+  await page.screenshot({ path: `e2e/shots/${name}-9e-relics.png`, fullPage: true });
 
   // Beschwörer wählen (freigeschaltet über Fortschritt)
   await page.evaluate(() => {
