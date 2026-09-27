@@ -9,8 +9,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -41,10 +39,6 @@ jobs:
         with:
           name: e2e-screenshots
           path: e2e/shots
-      - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main'
-        with:
-          path: dist
 
   android:
     runs-on: ubuntu-latest
@@ -98,26 +92,3 @@ jobs:
         with:
           files: teufelsrad.apk
           generate_release_notes: true
-
-  deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: web
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      # Aktiviert Pages (Quelle: GitHub Actions), falls noch nicht geschehen.
-      # Fehlt die Berechtigung dazu, bleibt main grün und es gibt einen Hinweis.
-      - id: pages
-        uses: actions/configure-pages@v5
-        continue-on-error: true
-        with:
-          enablement: true
-      - name: Hinweis, falls GitHub Pages nicht aktiv ist
-        if: steps.pages.outcome != 'success'
-        run: |
-          echo "::warning title=GitHub Pages nicht aktiv::Bitte unter Settings → Pages die Quelle 'GitHub Actions' wählen. Danach wird die Web-Version bei jedem Push auf main veröffentlicht."
-      - id: deployment
-        if: steps.pages.outcome == 'success'
-        uses: actions/deploy-pages@v4

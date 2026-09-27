@@ -69,7 +69,7 @@ npm run apk        # Build + Capacitor-Sync + APK (benötigt Android-SDK)
 ### Android
 `android/` ist ein Capacitor-Projekt (`de.ninjalama.teufelsrad`, Hochformat). Alle Builds werden mit `android/teufelsrad.jks` identisch signiert, damit Updates drüber installierbar sind. Die App zeigt ein Banner, sobald auf GitHub ein neueres Release liegt.
 
-> **Sicherheit:** Der Keystore liegt wie beim Vorgängerprojekt im Repo. Ist das Repo öffentlich, lege stattdessen die Secrets `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` und `ANDROID_KEY_PASSWORD` an. Die CI nutzt sie automatisch, und der Repo-Keystore kann dann entfernt werden.
+> **Sicherheit:** Der Keystore liegt wie beim Vorgängerprojekt im Repo; das ist nur in Ordnung, solange das Repo privat bleibt. Sollte es je öffentlich werden, lege stattdessen die Secrets `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` und `ANDROID_KEY_PASSWORD` an. Die CI nutzt sie automatisch, und der Repo-Keystore kann dann entfernt werden.
 
 ### Architektur
 
@@ -91,4 +91,4 @@ Simulation und Darstellung sind strikt getrennt: `simulateSpin()` berechnet das 
 
 Jeder Push und jeder PR durchläuft Typecheck, Unit-Tests, Balance-Simulation, Build und E2E. Danach baut ein zweiter Job die signierte **APK** als Artifact.
 - **Tag `v*`:** Die APK wird zusätzlich als **GitHub Release** (`teufelsrad.apk`) veröffentlicht.
-- **Push auf `main`:** Die Web-Version wird auf **GitHub Pages** veröffentlicht. Dafür in den Repo-Einstellungen unter *Pages* die Quelle „GitHub Actions“ wählen.
+- Das Repo bleibt privat, es wird nichts veröffentlicht. Die Web-Version läuft lokal über `npm run dev` bzw. `npm run preview`, die Android-App über die APK.
