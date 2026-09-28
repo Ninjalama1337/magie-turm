@@ -3,11 +3,13 @@ import { checkAchievements, type AchievementCtx } from '../content/achievements'
 import { challengeFor } from '../core/daily';
 import { Decimal, fmt } from '../core/num';
 import { randomSeed } from '../core/rng';
-import { ashFor, DEFAULT_META, newRun, type RunOptions } from '../core/run';
-import { loadMeta, loadRun, metaBonuses, recordChallenge, saveMeta, saveRun, type MetaState } from '../core/save';
+import { ashFor, DEFAULT_META, newRun, ritualName, type RunOptions } from '../core/run';
+import { demonById } from '../content/demons';
+import { loadMeta, loadRun, metaBonuses, recordChallenge, recordRun, saveMeta, saveRun, type MetaState } from '../core/save';
 import type { RunState } from '../core/types';
 import { WHEELS } from '../core/wheel';
 import { toast } from './popups';
+import { applySkin } from '../render/skin';
 import { refName } from './components';
 import { discover, grantXp, type XpResult } from '../core/progress';
 import { xpForRun, type DiscoveryCtx } from '../content/unlocks';
@@ -46,6 +48,8 @@ export class App {
     const s = this.meta.settings;
     sfx.setEnabled(this.meta.sound);
     sfx.setVolumes(s.music, s.sfx);
+    sfx.haptics = s.haptics;
+    applySkin(this.meta.cosmetics);
     document.documentElement.classList.toggle('reduced-fx', s.reducedFx);
   }
 
@@ -183,6 +187,8 @@ export class App {
     if (run.stats.bestSpin.gt(new Decimal(this.meta.bestSpin))) this.meta.bestSpin = run.stats.bestSpin.toString();
     if (run.phase === 'victory' || run.endless) this.meta.victories++;
     if (run.stats.bestSpin.gte(Number.MAX_VALUE)) this.meta.infinity = true;
+    const demon = demonById(run.demon);
+    recordRun(this.meta, run, run.phase === 'gameover' ? (demon ? `Besiegt von ${demon.name}` : `Gescheitert: ${ritualName(run)}`) : 'Sieg');
     if (run.mode !== 'normal' && run.dailyKey) recordChallenge(this.meta, run.dailyKey, run.circle, run.stats.bestSpin.toString());
     this.achievements({ run, runEnd: true });
     if (run.phase === 'gameover') this.discoveries({ run, lost: true });

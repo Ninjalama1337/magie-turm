@@ -1,11 +1,13 @@
 import { ARCANA_BY_ID } from '../content/arcana';
-import { DEMON_BY_ID, ENCHANT_BY_ID } from '../content/demons';
+import { demonById, ENCHANT_BY_ID } from '../content/demons';
+import { bonds, ELEMENTS, elementOf, resonance } from '../content/elements';
+import { FUSION_LEVEL, recipesWith } from '../content/fusions';
 import { PACT_BY_ID } from '../content/pacts';
 import { SIGIL_BY_ID } from '../content/sigils';
 import { SUIT_NAME } from '../content/arcana-minor';
 import { POTION_BY_ID } from '../content/potions';
 import { parseRef, unlockSource, type UnlockKind } from '../content/unlocks';
-import type { ArcanaInst, Edition, Enchant, PactInst, SigilInst, Suit } from '../core/types';
+import type { ArcanaInst, Edition, Enchant, PactInst, RunState, SigilInst, Suit } from '../core/types';
 import { colorOf, pocketLabel, type WheelDef } from '../core/wheel';
 import { RARITY_COLOR, RARITY_LABEL, SIGIL_COLOR } from '../render/colors';
 import { h } from './dom';
@@ -72,29 +74,81 @@ export function arcanaDetail(id: string, inst?: ArcanaInst, level = 1, edition?:
     </div>
     <p class="detail-desc">${def.desc(l, inst)}</p>
     ${ed ? `<p class="detail-ed"><b class="x">${EDITION_LABEL[ed]}:</b> ${EDITION_DESC[ed]}</p>` : ''}
-    ${l < 5 ? `<p class="detail-next">Nächste Stufe: ${def.desc(l + 1, inst)}</p>` : ''}`;
+    ${l < 5 ? `<p class="detail-next">Nächste Stufe: ${def.desc(l + 1, inst)}</p>` : ''}
+    ${recipesWith(id)
+      .map((r) => {
+        const other = ARCANA_BY_ID[r.a === id ? r.b : r.a];
+        return `<p class="detail-fusion">${glyphSvg('potion')} <b>Fusion:</b> mit <b>${other.name}</b> (beide Stufe ${FUSION_LEVEL}) → <b class="leg">${ARCANA_BY_ID[r.result].name}</b></p>`;
+      })
+      .join('')}`;
 }
 
 export function sigilTile(id: string, opts: { inst?: SigilInst; level?: number } = {}): HTMLDivElement {
   const def = SIGIL_BY_ID[id];
   const level = opts.inst?.level ?? opts.level ?? 1;
   const c = SIGIL_COLOR[id] ?? '#fff';
-  const el = h('div', { class: `sigil-tile r-${def.rarity}`, style: `--sc:${c}` });
-  el.innerHTML = `<div class="rhomb">${glyphSvg(def.glyph)}</div>
-    <div class="sigil-name">${def.name}</div>${levelPips(level)}`;
-  return el;
+  const el = elementOf(id);
+  const tile = h('div', { class: `sigil-tile r-${def.rarity}`, style: `--sc:${c}` });
+  tile.innerHTML = `<div class="rhomb">${glyphSvg(def.glyph)}</div>
+    <div class="sigil-name">${def.name}</div>${levelPips(level)}${el ? elementTag(el.id) : ''}`;
+  return tile;
 }
 
-export function sigilDetail(id: string, level = 1): string {
+export function elementTag(id: string, withName = true): string {
+  const el = ELEMENTS.find((e) => e.id === id);
+  if (!el) return '';
+  return `<span class="el-tag" style="--ec:${el.color}">${glyphSvg(el.glyph)}${withName ? el.name : ''}</span>`;
+}
+
+export function sigilDetail(id: string, level = 1, opts: { resonant?: boolean } = {}): string {
   const def = SIGIL_BY_ID[id];
   const c = SIGIL_COLOR[id] ?? '#fff';
+  const el = elementOf(id);
+  const eff = opts.resonant ? level + 1 : level;
   return `<div class="detail-head" style="--rc:${c}">
       ${glyphSvg(def.glyph, 'glyph big')}
       <div><div class="detail-title">${def.name}</div>
-      <div class="detail-sub">Siegel · ${RARITY_LABEL[def.rarity]} · Stufe ${level}</div></div>
+      <div class="detail-sub">Siegel · ${RARITY_LABEL[def.rarity]} · Stufe ${level}${el ? ` · ${el.name}` : ''}</div></div>
     </div>
-    <p class="detail-desc">Jedes Mal, wenn eine Kugel diese Raute passiert: ${def.desc(level)}</p>
+    <p class="detail-desc">Jedes Mal, wenn eine Kugel diese Raute passiert: ${def.desc(eff)}</p>
+    ${opts.resonant ? `<p class="detail-ed"><b class="x">Resonanz:</b> Ein Nachbar ist ebenfalls ${el?.name} – wirkt wie Stufe ${eff}.</p>` : ''}
     ${level < 5 ? `<p class="detail-next">Nächste Stufe (erneut kaufen): ${def.desc(level + 1)}</p>` : ''}`;
+}
+
+/** Erklärung aller Elemente, Bünde und der Resonanz */
+export function bondsHelp(run?: RunState): string {
+  const active = run ? bonds(run) : [];
+  const rows = ELEMENTS.map((e) => {
+    const b = active.find((x) => x.element.id === e.id);
+    const tiers = e.tiers
+      .map((t, k) => `<li class="${b && b.tier > k ? 'on' : ''}"><b>${t.n}×</b> ${t.desc}</li>`)
+      .join('');
+    return `<div class="bond-help" style="--ec:${e.color}"><div class="bond-help-head">${glyphSvg(e.glyph)}<b>${e.name}</b>${b ? `<span>${b.count} auf dem Kessel</span>` : ''}</div><ul>${tiers}</ul></div>`;
+  }).join('');
+  return `<div class="modal-kicker">Siegel-Synergien</div><div class="modal-title">Bünde &amp; Resonanz</div>
+    <p class="muted">Jedes Siegel gehört zu einem <b>Element</b>. Mehrere Siegel desselben Elements auf freien Rauten schließen einen <b>Bund</b>. <b class="x">Resonanz:</b> Liegt ein Siegel direkt neben einem Siegel desselben Elements, wirkt es <b>eine Stufe stärker</b>.</p>
+    <div class="bond-help-grid">${rows}</div>`;
+}
+
+/** Leiste der aktiven Bünde; Klick öffnet die Erklärung */
+export function bondsBar(run: RunState): HTMLElement {
+  const bar = h('div', { class: 'bonds-bar' });
+  const list = bonds(run).sort((a, b) => b.tier - a.tier || b.count - a.count);
+  const reso = resonance(run).filter(Boolean).length;
+  if (!list.length) bar.innerHTML = '<span class="muted">Keine Bünde</span>';
+  for (const b of list) {
+    const next = b.element.tiers[b.tier];
+    const chip = h('span', {
+      class: `bond-chip${b.tier ? ' on' : ''}`,
+      style: `--ec:${b.element.color}`,
+      html: `${glyphSvg(b.element.glyph)}<b>${b.count}</b>${next ? `<small>/${next.n}</small>` : '<small>★</small>'}`,
+    });
+    chip.title = `${b.element.name}: ${b.tier ? b.element.tiers.slice(0, b.tier).map((t) => t.desc.replace(/<[^>]+>/g, '')).join(', ') : `ab ${next?.n} Siegeln`}`;
+    bar.append(chip);
+  }
+  if (reso) bar.append(h('span', { class: 'bond-chip reso on', html: `${glyphSvg('echo')}<b>${reso}</b><small>Resonanz</small>` }));
+  bar.addEventListener('click', () => modal(bondsHelp(run), [{ label: 'Verstanden', cls: 'primary' }], { cls: 'wide' }));
+  return bar;
 }
 
 export function pactCard(id: string, stacks = 0): HTMLDivElement {
@@ -161,7 +215,7 @@ export function potionDetail(id: string): string {
 }
 
 export function demonBanner(id: string): HTMLDivElement {
-  const d = DEMON_BY_ID[id];
+  const d = demonById(id)!;
   const el = h('div', { class: 'demon-banner' });
   el.innerHTML = `${glyphSvg(d.glyph, 'glyph')}<div><b>${d.name}</b>, ${d.title}<br><span>${d.desc}</span></div>`;
   return el;

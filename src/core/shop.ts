@@ -1,4 +1,6 @@
 import { ARCANA, ARCANA_BY_ID } from '../content/arcana';
+import { EVENT_BY_ID, eventRng, rollEvent, type EventCtx } from '../content/events';
+import { FUSIONS, FUSION_LEVEL, FUSION_PRICE, type FusionRecipe } from '../content/fusions';
 import { ENCHANTS } from '../content/demons';
 import { PACTS, PACT_BY_ID } from '../content/pacts';
 import { SIGILS, SIGIL_BY_ID } from '../content/sigils';
@@ -87,7 +89,29 @@ export function generateShop(run: RunState, rng: Rng): ShopState {
   const ench = rng.pick(ENCHANTS);
   const free = wheelOf(run).order.filter((n) => run.enchants[n] !== ench.id);
   offers.push({ kind: 'enchant', enchant: ench.id, pocket: rng.pick(free), price: ench.price + stats.priceAdd, sold: false });
-  return { offers, rerollCost: 2, freeRerolls: stats.freeRerolls };
+  const event = run.mode === 'normal' ? rollEvent(run) : undefined;
+  return { offers, rerollCost: 2, freeRerolls: stats.freeRerolls, ...(event ? { event: { id: event } } : {}) };
+}
+
+/** Wählt eine Option der aktuellen Begegnung; liefert den Ergebnistext oder einen Grund für die Ablehnung */
+export function resolveEvent(run: RunState, option: number): { ok: boolean; text: string } {
+  const ev = run.shop?.event;
+  const def = ev && EVENT_BY_ID[ev.id];
+  const opt = def?.options[option];
+  if (!ev || !def || !opt || ev.result) return { ok: false, text: 'Keine Begegnung' };
+  const ctx = eventCtx(run);
+  const can = opt.can?.(run, ctx) ?? true;
+  if (can !== true) return { ok: false, text: can };
+  const rng = eventRng(run);
+  rng.next();
+  rng.next();
+  ev.result = opt.apply(run, rng, ctx);
+  return { ok: true, text: ev.result };
+}
+
+export function eventCtx(run: RunState): EventCtx {
+  const s = computeStats(run, false);
+  return { arcanaSlots: s.arcanaSlots, potionSlots: s.potionSlots };
 }
 
 export function rerollPrice(run: RunState): number {
@@ -256,5 +280,26 @@ export function sellPotion(run: RunState, index: number): boolean {
   if (!id) return false;
   run.souls += Math.max(1, Math.floor(POTION_BY_ID[id].cost / 2));
   run.potions.splice(index, 1);
+  return true;
+}
+
+// ---------------------------------------------------------------- Fusion
+
+/** Mögliche Fusionen: beide Zutaten im Besitz und mindestens Stufe 3 */
+export function fusionOptions(run: RunState): FusionRecipe[] {
+  const lvl = (id: string) => run.arcana.find((a) => a.id === id)?.level ?? 0;
+  return FUSIONS.filter((r) => lvl(r.a) >= FUSION_LEVEL && lvl(r.b) >= FUSION_LEVEL);
+}
+
+/** Verschmilzt zwei Arkana zu einer legendären Karte (Platz der ersten Zutat) */
+export function fuseArcana(run: RunState, recipe: FusionRecipe): boolean {
+  if (!fusionOptions(run).includes(recipe) || run.souls < FUSION_PRICE) return false;
+  const ia = run.arcana.findIndex((a) => a.id === recipe.a);
+  const ib = run.arcana.findIndex((a) => a.id === recipe.b);
+  const first = Math.min(ia, ib);
+  const edition = run.arcana[ia].edition ?? run.arcana[ib].edition;
+  run.souls -= FUSION_PRICE;
+  run.arcana[first] = { uid: run.uid++, id: recipe.result, level: 1, state: {}, ...(edition ? { edition } : {}) };
+  run.arcana.splice(Math.max(ia, ib), 1);
   return true;
 }

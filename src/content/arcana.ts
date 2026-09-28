@@ -3,6 +3,7 @@ import { fmtMult } from '../core/num';
 import { colorOf, isEven, isOdd } from '../core/wheel';
 import type { ArcanaDef, Src } from '../core/types';
 import { minorArcana } from './arcana-minor';
+import { FUSION_ARCANA } from './fusions';
 
 const S = (i: number): Src => ({ k: 'arcana', i });
 const n = (v: number) => fmtMult(v);
@@ -383,3 +384,5 @@ export const ARCANA: ArcanaDef[] = [
 export const ARCANA_BY_ID: Record<string, ArcanaDef> = {};
 ARCANA.push(...minorArcana(() => ARCANA_BY_ID));
 for (const a of ARCANA) ARCANA_BY_ID[a.id] = a;
+// Fusions-Arkana gibt es nicht im Basar, nur durch Fusion
+for (const a of FUSION_ARCANA) ARCANA_BY_ID[a.id] = a;

@@ -47,6 +47,8 @@ async function scenario(browser, name, viewport) {
   await page.waitForSelector('.setup');
   await page.waitForTimeout(500);
   ok((await page.locator('.stake').count()) === 5, '5 Höllenstufen im Setup');
+  ok((await page.locator('.hero').count()) === 6, '6 Beschwörer im Setup');
+  ok((await page.locator('.hero.locked').count()) === 5, 'Nur der Wanderer ist zu Beginn frei');
   await page.screenshot({ path: `e2e/shots/${name}-0-setup.png` });
   await page.locator('.setup-go .btn').click();
   await page.waitForSelector('.ritual');
@@ -68,6 +70,7 @@ async function scenario(browser, name, viewport) {
     window.__app.show('ritual');
   });
   await page.waitForTimeout(300);
+  ok((await page.locator('.bonds-bar').count()) === 1, 'Bünde-Leiste im Ritual');
   await page.screenshot({ path: `e2e/shots/${name}-2-ritual.png` });
 
   // Drag & Drop: erste Arkana ans Ende ziehen
@@ -118,11 +121,27 @@ async function scenario(browser, name, viewport) {
   await page.waitForSelector('.tut-box');
   await page.getByRole('button', { name: 'Überspringen' }).click();
   await page.evaluate(() => {
-    window.__app.run.souls = 40;
+    const run = window.__app.run;
+    run.souls = 40;
+    run.shop.event = { id: 'katze' };
+    run.arcana = run.arcana.slice(0, 3);
+    run.arcana.push({ uid: 950, id: 'narr', level: 3, state: {} }, { uid: 951, id: 'wagen', level: 3, state: {} });
     window.__app.show('shop');
   });
   await page.waitForTimeout(400);
   await page.screenshot({ path: `e2e/shots/${name}-6-shop.png`, fullPage: true });
+  ok((await page.locator('.event-card').count()) === 1, 'Begegnung im Basar');
+  await page.locator('.event-opt').first().click();
+  await page.waitForTimeout(150);
+  ok((await page.locator('.event-result').count()) === 1, 'Begegnung entschieden');
+  ok((await page.locator('.fusion-btn').count()) === 1, 'Fusion angeboten');
+  await page.locator('.fusion-btn').click();
+  await page.getByRole('button', { name: /Verschmelzen/ }).click();
+  await page.waitForTimeout(200);
+  ok(await page.evaluate(() => window.__app.run.arcana.some((a) => a.id === 'wilderritt')), 'Fusion durchgeführt');
+  await page.evaluate(() => (window.__app.run.souls = 40));
+  await page.evaluate(() => window.__app.show('shop'));
+  await page.waitForTimeout(200);
 
   const before = await page.locator('.offer.sold').count();
   await page.locator('.offer .btn.price:not(.no)').first().click();
@@ -138,6 +157,10 @@ async function scenario(browser, name, viewport) {
   await page.waitForSelector('.codex-grid .tarot');
   ok((await page.locator('.codex-grid .tarot').count()) === 50, '50 Arkana im Kodex');
   await page.screenshot({ path: `e2e/shots/${name}-7-codex.png` });
+  await page.locator('.tab', { hasText: 'Beschwörer' }).click();
+  ok((await page.locator('.codex-grid .demon-card').count()) >= 13, 'Beschwörer, Fusionen und Elemente im Kodex');
+  await page.locator('.tab', { hasText: 'Chronik' }).click();
+  ok((await page.locator('.chronik-stats').count()) === 1, 'Chronik im Kodex');
 
   // Mini-Rad
   await page.evaluate(() => {
@@ -175,6 +198,48 @@ async function scenario(browser, name, viewport) {
   await page.waitForTimeout(200);
   ok((await page.locator('.talent.owned').count()) === 1, 'Talent gekauft');
   await page.screenshot({ path: `e2e/shots/${name}-9c-grimoire.png`, fullPage: true });
+  await page.locator('[data-view="relics"]').click();
+  await page.waitForSelector('.relics');
+  ok((await page.locator('.album-row').count()) >= 7, 'Sammelalbum in der Reliquienkammer');
+  await page.evaluate(() => (window.__app.meta.ash = 100));
+  await page.locator('.relic', { hasText: 'Glutkugel' }).click();
+  await page.waitForTimeout(150);
+  ok(await page.evaluate(() => window.__app.meta.cosmetics.ball === 'ball:glut'), 'Kosmetik gekauft und angelegt');
+  await page.screenshot({ path: `e2e/shots/${name}-9e-relics.png`, fullPage: true });
+
+  // Beschwörer wählen (freigeschaltet über Fortschritt)
+  await page.evaluate(() => {
+    const m = window.__app.meta;
+    m.runs = 5;
+    m.bestCircle = 5;
+    window.__app.show('setup');
+  });
+  await page.waitForSelector('.heroes');
+  await page.locator('.hero', { hasText: 'Spieler' }).click();
+  await page.screenshot({ path: `e2e/shots/${name}-9d-heroes.png`, fullPage: true });
+  await page.locator('.setup-go .btn').click();
+  await page.getByRole('button', { name: 'Neu beginnen' }).click();
+  await page.waitForSelector('.ritual');
+  const hero = await page.evaluate(() => [window.__app.run.hero, window.__app.run.sigils[0]?.id].join(','));
+  ok(hero === 'spieler,wuerfel', `Run mit Beschwörer gestartet (${hero})`);
+
+  // Spielstand exportieren und wieder importieren
+  await page.evaluate(() => window.__app.show('title'));
+  await page.evaluate(() => (window.__app.meta.ash = 777));
+  await page.evaluate(() => window.__app.saveAll());
+  await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+  await page.getByRole('button', { name: 'Exportieren' }).click();
+  const exported = await page.locator('.save-io textarea').inputValue();
+  ok(exported.startsWith('TEUFELSRAD1:'), 'Spielstand-Code exportiert');
+  await page.getByRole('button', { name: 'Schließen' }).last().click();
+  await page.evaluate(() => (window.__app.meta.ash = 1));
+  await page.getByRole('button', { name: 'Importieren' }).click();
+  await page.locator('.save-io textarea').fill(exported);
+  await page.getByRole('button', { name: 'Laden' }).click();
+  await page.waitForTimeout(300);
+  ok((await page.evaluate(() => window.__app.meta.ash)) === 777, 'Spielstand importiert');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => document.querySelectorAll('.modal-back').forEach((m) => m.remove()));
 
   // Freischaltungen: Titel-Balken, versiegelte Karten, Enthüllung nach Niederlage
   await page.evaluate(() => window.__app.show('title'));

@@ -4,6 +4,7 @@ import type { Enchant, SigilInst } from '../core/types';
 import { colorOf, EURO, pocketLabel, wheelIndex, type WheelDef } from '../core/wheel';
 import { drawGlyph } from '../ui/icons';
 import { SIGIL_COLOR } from './colors';
+import { rimA, SKIN } from './skin';
 import { Particles } from './particles';
 
 export interface VBall {
@@ -34,6 +35,8 @@ export class WheelView {
   restPocket: number | null = null;
   sigils: (SigilInst | null)[] = [];
   unlocked = 3;
+  /** Rauten mit Resonanz (Nachbar gleichen Elements) */
+  resonant: boolean[] = [];
   blockedSlot = -1;
   enchants: Record<number, Enchant> = {};
   flash: number[] = new Array(SLOT_COUNT).fill(0);
@@ -210,20 +213,20 @@ export class WheelView {
     g.arc(0, 0, R * 0.995, 0, TAU);
     g.fill();
 
-    g.strokeStyle = '#c9a25a';
+    g.strokeStyle = SKIN.rim;
     g.lineWidth = R * 0.012;
     g.beginPath();
     g.arc(0, 0, R * 0.985, 0, TAU);
     g.stroke();
     g.lineWidth = R * 0.004;
-    g.strokeStyle = 'rgba(201,162,90,0.5)';
+    g.strokeStyle = rimA(0.5);
     g.beginPath();
     g.arc(0, 0, R * 0.955, 0, TAU);
     g.stroke();
 
     // Gravierte Inschrift
     const text = '✠ RIEN NE VA PLUS ✠ LASCIATE OGNI SPERANZA ✠ SANGUIS PRO FORTUNA ';
-    g.fillStyle = 'rgba(214,176,106,0.55)';
+    g.fillStyle = rimA(0.55);
     g.font = `${Math.max(7, R * 0.034)}px Cinzel, serif`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
@@ -257,7 +260,7 @@ export class WheelView {
     g.arc(0, 0, R * 0.7, 0, TAU, true);
     g.fill();
 
-    g.strokeStyle = 'rgba(201,162,90,0.35)';
+    g.strokeStyle = rimA(0.35);
     g.lineWidth = R * 0.004;
     g.beginPath();
     g.arc(0, 0, R * 0.7, 0, TAU);
@@ -341,7 +344,7 @@ export class WheelView {
     }
 
     // Stege
-    g.strokeStyle = '#c9a25a';
+    g.strokeStyle = SKIN.rim;
     g.lineWidth = Math.max(1, R * 0.006);
     for (let i = 0; i < count; i++) {
       const a = -Math.PI / 2 + (i - 0.5) * STEP;
@@ -369,7 +372,7 @@ export class WheelView {
     g.fill();
 
     // Pentagramm-Gravur
-    g.strokeStyle = 'rgba(201,162,90,0.55)';
+    g.strokeStyle = rimA(0.55);
     g.lineWidth = Math.max(1, R * 0.006);
     const pr = cone * 0.78;
     g.beginPath();
@@ -420,7 +423,7 @@ export class WheelView {
     }
     if (this.staticLayer) g.drawImage(this.staticLayer, 0, 0, this.size, this.size);
 
-    const key = JSON.stringify(this.enchants) + this.size + this.wheel.id;
+    const key = JSON.stringify(this.enchants) + this.size + this.wheel.id + SKIN.rim;
     if (key !== this.ringKey) {
       this.ringLayer = this.renderRing();
       this.ringKey = key;
@@ -508,6 +511,22 @@ export class WheelView {
     g.lineWidth = Math.max(1, R * (inst ? 0.008 : 0.005));
     g.globalAlpha = locked ? 0.7 : 1;
     g.stroke();
+    if (inst && !locked && this.resonant[i]) {
+      // Resonanz: zweiter, pulsierender Rahmen
+      const k = 1.28 + Math.sin(performance.now() / 380 + i) * 0.05;
+      g.save();
+      g.globalAlpha = 0.75;
+      g.setLineDash([R * 0.018, R * 0.012]);
+      g.lineWidth = Math.max(1, R * 0.006);
+      g.beginPath();
+      g.moveTo(0, -h * k);
+      g.lineTo(w * k, 0);
+      g.lineTo(0, h * k);
+      g.lineTo(-w * k, 0);
+      g.closePath();
+      g.stroke();
+      g.restore();
+    }
     g.rotate(-(a + Math.PI / 2));
 
     const gs = R * 0.09 * (1 + f * 0.3);
@@ -525,7 +544,7 @@ export class WheelView {
         g.fill();
       }
     } else {
-      g.fillStyle = 'rgba(201,162,90,0.35)';
+      g.fillStyle = rimA(0.35);
       g.font = `${R * 0.05}px Cinzel, serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
@@ -557,7 +576,7 @@ export class WheelView {
       g.globalCompositeOperation = 'lighter';
       for (let k = 1; k < b.trail.length; k++) {
         const t = k / b.trail.length;
-        g.strokeStyle = b.ghost ? `rgba(126,249,255,${0.35 * t * b.alpha})` : `rgba(255,230,200,${0.3 * t * b.alpha})`;
+        g.strokeStyle = b.ghost ? `rgba(126,249,255,${0.35 * t * b.alpha})` : `rgba(${SKIN.ball[3]},${0.3 * t * b.alpha})`;
         g.lineWidth = r * 1.6 * t;
         g.lineCap = 'round';
         g.beginPath();
@@ -581,12 +600,12 @@ export class WheelView {
       g.arc(p.x, p.y, r * 2.6, 0, TAU);
       g.fill();
     } else {
-      g.shadowColor = 'rgba(255,240,220,0.9)';
+      g.shadowColor = `rgba(${SKIN.ball[3]},0.9)`;
       g.shadowBlur = r * 1.5;
       const grad = g.createRadialGradient(p.x - r * 0.35, p.y - r * 0.35, r * 0.1, p.x, p.y, r);
-      grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(0.5, '#e6dccd');
-      grad.addColorStop(1, '#8b7f73');
+      grad.addColorStop(0, SKIN.ball[0]);
+      grad.addColorStop(0.5, SKIN.ball[1]);
+      grad.addColorStop(1, SKIN.ball[2]);
       g.fillStyle = grad;
       g.beginPath();
       g.arc(p.x, p.y, r, 0, TAU);

@@ -84,11 +84,46 @@ export interface MetaState {
   dailies: Record<string, DailyRecord>;
   settings: Settings;
   insight: Insight;
+  /** Gekaufte Kosmetik und Auswahl */
+  cosmetics: { owned: string[]; ball: string; rim: string };
+  /** Beschwörer, mit denen Luzifer besiegt wurde */
+  heroWins: string[];
+  /** Abgeholte Sammelalbum-Belohnungen */
+  album: string[];
+  /** Letzte Runs (neueste zuerst) */
+  history: RunRecord[];
+  /** Summen über alle Runs */
+  totals: Totals;
   /** Gekaufte Grimoire-Talente */
   talents: string[];
   /** Asche, die beim Umstieg auf den Talentbaum erstattet wurde (für einen Hinweis) */
   legacyRefund?: number;
 }
+
+export interface RunRecord {
+  t: number;
+  hero: string;
+  wheel: string;
+  stake: number;
+  mode: string;
+  circle: number;
+  victory: boolean;
+  rituals: number;
+  bestSpin: string;
+  arcana: string[];
+  sigils: string[];
+  cause: string;
+}
+
+export interface Totals {
+  spins: number;
+  rituals: number;
+  hits: number;
+  maxLaps: number;
+  maxGhosts: number;
+}
+
+export const HISTORY_MAX = 25;
 
 /** Erkenntnis-Fortschritt: freigeschalteter Karten-Pool */
 export interface Insight {
@@ -107,6 +142,7 @@ export interface Settings {
   sfx: number;
   shake: boolean;
   reducedFx: boolean;
+  haptics: boolean;
 }
 
 export const DEFAULT_META_STATE: MetaState = {
@@ -125,9 +161,14 @@ export const DEFAULT_META_STATE: MetaState = {
   wheelStakes: {},
   achievements: [],
   dailies: {},
-  settings: { music: 0.6, sfx: 0.8, shake: true, reducedFx: false },
+  settings: { music: 0.6, sfx: 0.8, shake: true, reducedFx: false, haptics: true },
   insight: { xp: 0, unlocked: [...STARTER] },
   talents: [],
+  cosmetics: { owned: [], ball: 'ball:knochen', rim: 'rim:gold' },
+  album: [],
+  heroWins: [],
+  history: [],
+  totals: { spins: 0, rituals: 0, hits: 0, maxLaps: 0, maxGhosts: 0 },
 };
 
 /** Grimoire-Boni aus den gekauften Talenten */
@@ -163,6 +204,11 @@ export function loadMeta(): MetaState {
     if (!raw) return structuredClone(DEFAULT_META_STATE);
     const m = { ...structuredClone(DEFAULT_META_STATE), ...JSON.parse(raw) } as MetaState;
     m.settings = { ...DEFAULT_META_STATE.settings, ...m.settings };
+    m.totals = { ...DEFAULT_META_STATE.totals, ...m.totals };
+    m.cosmetics = { ...DEFAULT_META_STATE.cosmetics, ...m.cosmetics };
+    if (!Array.isArray(m.album)) m.album = [];
+    if (!Array.isArray(m.heroWins)) m.heroWins = [];
+    if (!Array.isArray(m.history)) m.history = [];
     // Ältere Spielstände starten mit dem kleinen Start-Pool neu
     if (!m.insight?.unlocked) m.insight = { xp: 0, unlocked: [...STARTER] };
     // Umstieg auf den Talentbaum: alte Segnungen werden erstattet
@@ -202,4 +248,74 @@ export function recordChallenge(meta: MetaState, key: string, circle: number, sc
     if (better) cur.best = entry;
   }
   return meta.dailies[key];
+}
+
+// ---------------------------------------------------------------- Export/Import
+
+const EXPORT_PREFIX = 'TEUFELSRAD1:';
+
+function toBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+function fromBase64(b64: string): string {
+  const bin = atob(b64);
+  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+}
+
+/** Spielstand als kopierbarer Code (Meta-Fortschritt + laufender Run) */
+export function exportSave(meta: MetaState, run: RunState | null): string {
+  const payload = { meta, run: run && run.phase !== 'gameover' ? serializeRun(run) : null };
+  return EXPORT_PREFIX + toBase64(JSON.stringify(payload));
+}
+
+/** Liest einen exportierten Code; null bei ungültigem Code */
+export function parseSave(code: string): { meta: MetaState; run: RunState | null } | null {
+  try {
+    const trimmed = code.replace(/\s+/g, '');
+    if (!trimmed.startsWith(EXPORT_PREFIX)) return null;
+    const data = JSON.parse(fromBase64(trimmed.slice(EXPORT_PREFIX.length))) as { meta?: MetaState; run?: string | null };
+    if (!data.meta || typeof data.meta.ash !== 'number' || !Array.isArray(data.meta.talents)) return null;
+    const meta = { ...structuredClone(DEFAULT_META_STATE), ...data.meta } as MetaState;
+    meta.settings = { ...DEFAULT_META_STATE.settings, ...meta.settings };
+    meta.totals = { ...DEFAULT_META_STATE.totals, ...meta.totals };
+    meta.cosmetics = { ...DEFAULT_META_STATE.cosmetics, ...meta.cosmetics };
+    if (!Array.isArray(meta.album)) meta.album = [];
+    if (!Array.isArray(meta.heroWins)) meta.heroWins = [];
+    if (!Array.isArray(meta.history)) meta.history = [];
+    const run = data.run ? deserializeRun(data.run) : null;
+    return { meta, run };
+  } catch {
+    return null;
+  }
+}
+
+/** Trägt einen beendeten Run in Chronik und Summen ein */
+export function recordRun(meta: MetaState, run: RunState, cause: string): RunRecord {
+  const rec: RunRecord = {
+    t: Date.now(),
+    hero: run.hero ?? 'wanderer',
+    wheel: run.wheel,
+    stake: run.stake,
+    mode: run.mode,
+    circle: run.circle,
+    victory: run.phase === 'victory' || run.endless,
+    rituals: run.stats.ritualsWon,
+    bestSpin: run.stats.bestSpin.toString(),
+    arcana: run.arcana.map((a) => a.id),
+    sigils: run.sigils.filter((s): s is NonNullable<typeof s> => !!s).map((s) => s.id),
+    cause,
+  };
+  meta.history = [rec, ...meta.history].slice(0, HISTORY_MAX);
+  if (rec.victory && rec.mode === 'normal' && !meta.heroWins.includes(rec.hero)) meta.heroWins.push(rec.hero);
+  const t = meta.totals;
+  t.spins += run.stats.spins;
+  t.rituals += run.stats.ritualsWon;
+  t.hits += run.stats.betsHit;
+  t.maxLaps = Math.max(t.maxLaps, run.stats.maxLaps);
+  t.maxGhosts = Math.max(t.maxGhosts, run.stats.maxGhosts);
+  return rec;
 }

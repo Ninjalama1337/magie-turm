@@ -1,7 +1,8 @@
 import Decimal from 'break_eternity.js';
 import { ARCANA, ARCANA_BY_ID } from '../content/arcana';
+import { heroOf } from '../content/heroes';
 import { EMPTY_META, fullMeta } from '../content/talents';
-import { DEMON_BY_ID, DEMONS, LUCIFER } from '../content/demons';
+import { demonById, DEMONS, LUCIFER } from '../content/demons';
 import { Rng } from './rng';
 import { generateShop } from './shop';
 import { simulateSpin } from './spin';
@@ -52,7 +53,7 @@ export function targetFor(circle: number, ritual: number): Decimal {
 /** Ziel eines (auch zukünftigen) Rituals inkl. Stufe, Omen und Dämon */
 export function ritualTarget(run: RunState, circle: number, ritual: number): Decimal {
   let mult = computeStats(run, false).targetMult;
-  if (ritual === 2) mult *= DEMON_BY_ID[run.circleDemon]?.mods.targetMult ?? 1;
+  if (ritual === 2) mult *= demonById(run.circleDemon)?.mods.targetMult ?? 1;
   return targetFor(circle, ritual).mul(mult).floor();
 }
 
@@ -60,9 +61,11 @@ export function ritualTarget(run: RunState, circle: number, ritual: number): Dec
 const HARSH_DEMONS = new Set(['azazel', 'baal', 'paimon', 'belial', 'leviathan']);
 
 export function demonForCircle(circle: number, rng: Rng): string {
-  if (circle % FINAL_CIRCLE === 0) return LUCIFER.id;
-  const pool = circle <= 2 ? DEMONS.filter((d) => !HARSH_DEMONS.has(d.id)) : DEMONS;
-  return rng.pick(pool).id;
+  const first = circle % FINAL_CIRCLE === 0 ? LUCIFER.id : rng.pick(circle <= 2 ? DEMONS.filter((d) => !HARSH_DEMONS.has(d.id)) : DEMONS).id;
+  if (circle <= FINAL_CIRCLE) return first;
+  // Im Jenseits herrschen Doppeldämonen mit den Regeln zweier Dämonen
+  const second = rng.pick(DEMONS.filter((d) => d.id !== first)).id;
+  return `${first}+${second}`;
 }
 
 export const DEFAULT_META: MetaBonuses = EMPTY_META;
@@ -79,6 +82,8 @@ export interface RunOptions {
   omens?: string[];
   /** Verfügbarer Karten-Pool (Freischaltungen); ohne Angabe ist alles verfügbar */
   pool?: string[];
+  /** Beschwörer; Herausforderungen nutzen immer den Wanderer */
+  hero?: string;
 }
 
 export function newRun(seed: number, metaIn: Partial<MetaBonuses> = DEFAULT_META, opts: RunOptions = {}): RunState {
@@ -94,6 +99,7 @@ export function newRun(seed: number, metaIn: Partial<MetaBonuses> = DEFAULT_META
     potions: [],
     buffs: freshBuffs(),
     pool: opts.pool ? [...opts.pool] : undefined,
+    hero: opts.hero && opts.hero !== 'wanderer' ? opts.hero : undefined,
     seed,
     rngState: 0,
     circle: 1,
@@ -126,6 +132,7 @@ export function newRun(seed: number, metaIn: Partial<MetaBonuses> = DEFAULT_META
     lastBet: { kind: 'red' },
   };
   run.sigils[0] = { uid: run.uid++, id: 'glut', level: 1 };
+  heroOf(run).start?.(run, rng);
   wheelOf(run).start?.(run);
   // Grimoire: Reliquie – zufällige seltene Arkana aus dem freigeschalteten Pool
   for (let k = 0; k < meta.startRare; k++) {
@@ -145,6 +152,12 @@ export function startRitual(run: RunState): void {
   run.demon = run.ritual === 2 ? run.circleDemon : null;
   run.target = ritualTarget(run, run.circle, run.ritual);
   run.spinsLeft = computeStats(run).spins;
+  // Einmalige Folgen von Ereignissen
+  if (run.nextRitual) {
+    run.target = run.target.mul(run.nextRitual.targetMult ?? 1).floor();
+    run.spinsLeft = Math.max(1, run.spinsLeft + (run.nextRitual.spinsAdd ?? 0));
+    delete run.nextRitual;
+  }
   run.ritualScore = new Decimal(0);
   run.phase = 'ritual';
   run.shop = null;
@@ -197,6 +210,14 @@ export function finishRitual(run: RunState): RewardLine[] {
   for (let i = run.arcana.length - 1; i >= 0; i--) {
     const inst = run.arcana[i];
     ARCANA_BY_ID[inst.id]?.hooks.ritualEnd?.(run, inst, i, lines);
+  }
+
+  // Jenseits-Trophäe: Bonus-Seelen und eine kostenlose Arkana-Aufwertung
+  if (run.ritual === 2 && run.circle > FINAL_CIRCLE) {
+    const up = run.arcana.filter((a) => a.level < MAX_LEVEL);
+    const pick = up.length ? withRng(run, (rng) => rng.pick(up)) : null;
+    if (pick) pick.level++;
+    lines.push({ label: pick ? `Jenseits-Trophäe (${ARCANA_BY_ID[pick.id]?.name} +1 Stufe)` : 'Jenseits-Trophäe', souls: 5 });
   }
 
   const total = lines.reduce((s, l) => s + l.souls, 0);

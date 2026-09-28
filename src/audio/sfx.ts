@@ -1,3 +1,5 @@
+import { Music } from './music';
+
 /** Prozedurale Soundeffekte über WebAudio – keine Assets nötig. */
 class Sfx {
   private ctx: AudioContext | null = null;
@@ -8,6 +10,18 @@ class Sfx {
   private heat = 0;
   private last: Record<string, number> = {};
   enabled = true;
+  /** Vibration auf dem Handy (unabhängig vom Ton) */
+  haptics = true;
+
+  /** Kurze Vibration; nur auf Geräten mit Vibrationsmotor */
+  buzz(pattern: number | number[]): void {
+    if (!this.haptics) return;
+    try {
+      navigator.vibrate?.(pattern);
+    } catch {
+      /* nicht unterstützt */
+    }
+  }
 
   private ensure(): AudioContext | null {
     if (!this.enabled) return null;
@@ -102,11 +116,13 @@ class Sfx {
   }
 
   record(): void {
+    this.buzz([40, 60, 40, 60, 120]);
     [0, 7, 12, 19, 24].forEach((s, i) => this.tone(261.6 * Math.pow(2, s / 12), 0.9, 'triangle', 0.07, 1, i * 0.08));
     this.noise(1.2, 0.2, 4000, 0.5);
   }
 
   achievement(): void {
+    this.buzz([30, 50, 30]);
     [0, 4, 7, 11, 14].forEach((s, i) => this.tone(523 * Math.pow(2, s / 12), 0.5, 'sine', 0.05, 1, i * 0.06));
   }
 
@@ -149,6 +165,7 @@ class Sfx {
   }
 
   hit(): void {
+    this.buzz(25);
     [0, 4, 7, 12].forEach((s, i) => this.tone(330 * Math.pow(2, s / 12), 0.4, 'triangle', 0.06, 1, i * 0.07));
   }
 
@@ -157,6 +174,7 @@ class Sfx {
   }
 
   score(big: boolean): void {
+    this.buzz(big ? [20, 40, 60] : 12);
     this.noise(0.5, big ? 0.35 : 0.2, 300, 0.7);
     this.tone(big ? 55 : 82, 0.8, 'sine', 0.3, 0.5);
   }
@@ -167,15 +185,18 @@ class Sfx {
   }
 
   buy(): void {
+    this.buzz(8);
     this.tone(523, 0.1, 'triangle', 0.07);
     this.tone(784, 0.16, 'triangle', 0.06, 1, 0.08);
   }
 
   win(): void {
+    this.buzz([40, 80, 40, 80, 160]);
     [0, 3, 7, 10, 12, 15].forEach((s, i) => this.tone(220 * Math.pow(2, s / 12), 0.6, 'triangle', 0.07, 1, i * 0.09));
   }
 
   lose(): void {
+    this.buzz([200, 100, 300]);
     [0, -3, -6, -12].forEach((s, i) => this.tone(220 * Math.pow(2, s / 12), 0.8, 'sawtooth', 0.05, 0.9, i * 0.25));
   }
 
@@ -185,7 +206,7 @@ class Sfx {
     const out = this.music;
     const g = ctx.createGain();
     g.gain.value = 0;
-    g.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 3);
+    g.gain.linearRampToValueAtTime(0.03, ctx.currentTime + 3);
     const f = ctx.createBiquadFilter();
     f.type = 'lowpass';
     f.frequency.value = 380;
@@ -205,54 +226,21 @@ class Sfx {
     f.connect(g).connect(out);
     lfo.start();
 
-    // Ebene 2: Chor-Pad, blendet mit der Hitze ein
-    const padG = ctx.createGain();
-    padG.gain.value = 0;
-    const padF = ctx.createBiquadFilter();
-    padF.type = 'lowpass';
-    padF.frequency.value = 900;
-    const pads = [220, 261.6, 329.6, 220.8].map((fr) => {
-      const o = ctx.createOscillator();
-      o.type = 'sawtooth';
-      o.frequency.value = fr;
-      o.connect(padF);
-      o.start();
-      return o;
-    });
-    padF.connect(padG).connect(out);
-
-    // Ebene 3: Moll-Arpeggio (Taktgeber per Intervall)
-    const scale = [0, 3, 5, 7, 10, 12, 15];
-    let step = 0;
-    const timer = window.setInterval(() => {
-      if (this.heat < 0.25 || !this.enabled) return;
-      const semi = scale[(step * 3 + (step >> 2)) % scale.length];
-      step++;
-      const t = ctx.currentTime;
-      const o = ctx.createOscillator();
-      const eg = ctx.createGain();
-      o.type = 'triangle';
-      o.frequency.value = 220 * Math.pow(2, semi / 12);
-      eg.gain.setValueAtTime(0.0001, t);
-      eg.gain.exponentialRampToValueAtTime(0.03 * this.heat, t + 0.01);
-      eg.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-      o.connect(eg).connect(out);
-      o.start(t);
-      o.stop(t + 0.35);
-    }, 180);
+    // Musik: Orgel, Bass, Glocken; Arpeggio, Trommel und Chor mit der Hitze
+    const music = new Music(ctx, out);
+    music.setHeat(this.heat);
+    music.start();
 
     this.drone = {
       heat: (h) => {
-        padG.gain.linearRampToValueAtTime(0.025 * h, ctx.currentTime + 0.4);
+        music.setHeat(h);
         f.frequency.linearRampToValueAtTime(380 + 900 * h, ctx.currentTime + 0.4);
       },
       stop: () => {
-        clearInterval(timer);
+        music.stop();
         g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
-        padG.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
         setTimeout(() => {
           oscs.forEach((o) => o.stop());
-          pads.forEach((o) => o.stop());
           lfo.stop();
         }, 600);
       },

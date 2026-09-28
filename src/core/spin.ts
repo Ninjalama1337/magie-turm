@@ -1,4 +1,5 @@
 import Decimal from 'break_eternity.js';
+import { resonance } from '../content/elements';
 import { SIGIL_BY_ID } from '../content/sigils';
 import { fullMeta } from '../content/talents';
 import { addFluch, addGlut, addSouls, info, log, MAX_LAPS_PER_BALL, mulFluch, roll, spawnGhost } from './effects';
@@ -265,6 +266,8 @@ export function simulateSpin(run: RunState, bet: Bet, rng: Rng, opts: SpinOption
   const sigilCount = Math.min(run.sigilUnlocked, run.sigils.length);
   const slotOrder = Array.from({ length: sigilCount }, (_, i) => i);
   if (demon?.mods.reverseSigils) slotOrder.reverse();
+  // Resonanz: Siegel neben einem Siegel desselben Elements wirken eine Stufe stärker
+  const reso = resonance(run);
   const landing: Ball[] = [];
 
   for (let tick = 1; tick < 2000; tick++) {
@@ -307,6 +310,7 @@ export function simulateSpin(run: RunState, bet: Bet, rng: Rng, opts: SpinOption
       if (!inst) continue;
       const def = SIGIL_BY_ID[inst.id];
       if (!def) continue;
+      const eff = reso[slot] ? { ...inst, level: inst.level + 1 } : inst;
       ctx.at = (k + 0.5) / 8;
       for (const b of active) {
         if (!b.active) continue;
@@ -316,7 +320,7 @@ export function simulateSpin(run: RunState, bet: Bet, rng: Rng, opts: SpinOption
         ctx.mirror[b.id] = 0;
         const times = 1 + worldExtra + extra + (b.ghost ? ghostExtra : 0);
         for (let t = 0; t < times; t++) {
-          def.trigger(ctx, inst, slot, b);
+          def.trigger(ctx, eff, slot, b);
           ctx.sigilTriggers++;
           fireAll(ctx, 'sigil', slot, b);
         }
@@ -345,6 +349,10 @@ export function simulateSpin(run: RunState, bet: Bet, rng: Rng, opts: SpinOption
     else if (a.edition === 'poly') mulFluch(ctx, 1.5, s);
   });
 
+  if (stats.endGlut > 1) {
+    ctx.glut = ctx.glut.mul(stats.endGlut).floor();
+    info(ctx, `×${stats.endGlut} Glut`.replace('.', ','), { k: 'base' }, 0, 'glut');
+  }
   if (buffs.glutMult > 1) {
     ctx.glut = ctx.glut.mul(buffs.glutMult);
     info(ctx, `×${buffs.glutMult} Glut`, { k: 'potion' }, 0, 'glut');

@@ -1,10 +1,18 @@
 import { sfx } from '../../audio/sfx';
-import { DEMON_BY_ID } from '../../content/demons';
+import { demonById } from '../../content/demons';
+import { ARCANA_BY_ID } from '../../content/arcana';
+import { FUSION_PRICE } from '../../content/fusions';
+import { EVENT_BY_ID } from '../../content/events';
 import { PACT_BY_ID } from '../../content/pacts';
+import { elementOf, resonance } from '../../content/elements';
 import { SIGIL_BY_ID } from '../../content/sigils';
 import { fmt } from '../../core/num';
 import { circleName, nextRitual, ritualTarget, withRng } from '../../core/run';
 import {
+  eventCtx,
+  resolveEvent,
+  fuseArcana,
+  fusionOptions,
   arcanaSellValue,
   buy,
   canBuy,
@@ -45,6 +53,7 @@ import {
   potionChip,
   potionDetail,
   sigilDetail,
+  bondsBar,
   sigilTile,
 } from '../components';
 import { h, restartAnim, roman } from '../dom';
@@ -67,6 +76,7 @@ export function renderShop(app: App): () => void {
       </div>
       <div class="souls-pill">${glyphSvg('coin')}<b data-souls>${run.souls}</b></div>
     </header>
+    <section class="event-slot" data-event></section>
     <section class="panel offers-panel">
       <div class="panel-head"><h2>Angebote</h2><button class="btn ghost small" data-reroll></button></div>
       <div class="offers" data-offers></div>
@@ -74,9 +84,11 @@ export function renderShop(app: App): () => void {
     <section class="panel">
       <div class="panel-head"><h2>Arkana <span class="muted" data-acount></span></h2><span class="hint">Tippen: Aufwerten, Verkaufen, Umordnen</span></div>
       <div class="arcana-row owned" data-arcana></div>
+      <div class="fusions" data-fusions></div>
     </section>
     <section class="panel runes-panel">
-      <div class="panel-head"><h2>Rauten</h2><span class="hint">Die Kugel passiert sie in dieser Reihenfolge. Tippe zwei Rauten an, um sie zu tauschen.</span></div>
+      <div class="panel-head"><h2>Rauten</h2><span class="hint">Die Kugel passiert sie in dieser Reihenfolge. Tippe zwei Rauten an, um sie zu tauschen. Gleiche Elemente nebeneinander erzeugen <b class="x">Resonanz</b>.</span></div>
+      <div data-bonds></div>
       <div class="runes-body">
         <div class="wheel-mini" data-wheel></div>
         <div class="runes" data-runes></div>
@@ -102,6 +114,7 @@ export function renderShop(app: App): () => void {
 
   function refresh(): void {
     soulsEl.textContent = String(run.souls);
+    renderEvent();
     renderOffers();
     renderArcana();
     renderRunes();
@@ -110,7 +123,11 @@ export function renderShop(app: App): () => void {
     renderNext();
     view.sigils = run.sigils;
     view.unlocked = run.sigilUnlocked;
+    view.resonant = resonance(run);
     view.enchants = { ...run.enchants };
+    const bondsEl = q('bonds');
+    bondsEl.innerHTML = '';
+    bondsEl.append(bondsBar(run));
     app.saveAll();
   }
 
@@ -222,6 +239,77 @@ export function renderShop(app: App): () => void {
       el.append(card);
     });
     for (let i = run.arcana.length; i < slots; i++) el.append(h('div', { class: 'tarot empty' }));
+    renderFusions();
+  }
+
+  function renderEvent(): void {
+    const el = q('event');
+    el.innerHTML = '';
+    const ev = run.shop?.event;
+    const def = ev && EVENT_BY_ID[ev.id];
+    if (!ev || !def) return;
+    const card = h('div', { class: `event-card${ev.result ? ' done' : ''}` });
+    card.innerHTML = `<div class="event-head">${glyphSvg(def.glyph, 'glyph big')}<div><div class="lbl">Begegnung</div><b>${def.name}</b></div></div>
+      <p class="event-text">${def.text}</p>`;
+    if (ev.result) {
+      card.append(h('p', { class: 'event-result', html: ev.result }));
+    } else {
+      const ctx = eventCtx(run);
+      const row = h('div', { class: 'event-options' });
+      def.options.forEach((o, i) => {
+        const can = o.can?.(run, ctx) ?? true;
+        const b = h('button', {
+          class: 'event-opt',
+          disabled: can !== true,
+          html: `<b>${o.label}</b><span>${o.desc}</span>${can !== true ? `<em>${can}</em>` : ''}`,
+        });
+        b.addEventListener('click', () => {
+          const r = resolveEvent(run, i);
+          if (!r.ok) return toast(r.text);
+          sfx.buy();
+          refresh();
+        });
+        row.append(b);
+      });
+      card.append(row);
+    }
+    el.append(card);
+  }
+
+  function renderFusions(): void {
+    const el = q('fusions');
+    el.innerHTML = '';
+    for (const r of fusionOptions(run)) {
+      const res = ARCANA_BY_ID[r.result];
+      const b = h('button', {
+        class: 'fusion-btn',
+        disabled: run.souls < FUSION_PRICE,
+        html: `${glyphSvg('potion')}<span><b>Fusion:</b> ${ARCANA_BY_ID[r.a].name} + ${ARCANA_BY_ID[r.b].name} → <b class="leg">${res.name}</b></span><em>${glyphSvg('coin')}${FUSION_PRICE}</em>`,
+      });
+      b.addEventListener('click', () =>
+        modal(
+          `<div class="modal-kicker">Arkana-Fusion</div>${arcanaDetail(r.result)}<p class="muted">${ARCANA_BY_ID[r.a].name} und ${ARCANA_BY_ID[r.b].name} verschmelzen zu dieser legendären Karte (Stufe 1). Ein Arkana-Platz wird frei.</p>`,
+          [
+            { label: 'Abbrechen', cls: 'ghost' },
+            {
+              label: `Verschmelzen · ${FUSION_PRICE}`,
+              cls: 'primary',
+              disabled: run.souls < FUSION_PRICE,
+              onClick: () => {
+                if (!fuseArcana(run, r)) return;
+                if (!app.meta.seen.includes(`fused:${r.result}`)) app.meta.seen.push(`fused:${r.result}`);
+                sfx.achievement();
+                refresh();
+                const card = q('arcana').querySelector(`.tarot:nth-child(${run.arcana.findIndex((a) => a.id === r.result) + 1})`);
+                if (card) restartAnim(card, 'learned');
+                toast(`<b class="leg">${res.name}</b> ist entstanden!`);
+              },
+            },
+          ],
+        ),
+      );
+      el.append(b);
+    }
   }
 
   function inspectArcana(i: number): void {
@@ -257,10 +345,11 @@ export function renderShop(app: App): () => void {
   function renderRunes(): void {
     const el = q('runes');
     el.innerHTML = '';
+    const reso = resonance(run);
     for (let i = 0; i < run.sigils.length; i++) {
       const s = run.sigils[i];
       const locked = i >= run.sigilUnlocked;
-      const tile = h('div', { class: `rune${locked ? ' locked' : ''}${s ? ' filled' : ''}${selectedSlot === i ? ' sel' : ''}` });
+      const tile = h('div', { class: `rune${locked ? ' locked' : ''}${s ? ' filled' : ''}${reso[i] ? ' reso' : ''}${selectedSlot === i ? ' sel' : ''}` });
       tile.style.setProperty('--sc', s ? SIGIL_COLOR[s.id] ?? '#fff' : '#6d5a44');
       if (locked) {
         const first = i === run.sigilUnlocked;
@@ -276,7 +365,8 @@ export function renderShop(app: App): () => void {
         }
       } else if (s) {
         const def = SIGIL_BY_ID[s.id];
-        tile.innerHTML = `<span class="rune-n">${i + 1}</span><div class="rhomb">${glyphSvg(def.glyph)}</div>${levelPips(s.level)}`;
+        const el = elementOf(s.id);
+        tile.innerHTML = `<span class="rune-n">${i + 1}</span>${el ? `<span class="rune-el" style="--ec:${el.color}" title="${el.name}">${glyphSvg(el.glyph)}</span>` : ''}<div class="rhomb">${glyphSvg(def.glyph)}</div>${levelPips(s.level)}`;
         tile.addEventListener('click', () => clickSlot(i));
       } else {
         tile.innerHTML = `<span class="rune-n">${i + 1}</span><span class="rune-empty">leer</span>`;
@@ -299,7 +389,7 @@ export function renderShop(app: App): () => void {
       selectedSlot = -1;
       renderRunes();
       if (s) {
-        modal(sigilDetail(s.id, s.level), [
+        modal(sigilDetail(s.id, s.level, { resonant: resonance(run)[i] }), [
           { label: 'Schließen', cls: 'ghost' },
           {
             label: `Verkaufen · +${sigilSellValue(run, i)}`,
@@ -340,13 +430,13 @@ export function renderShop(app: App): () => void {
       nc++;
     }
     const names = ['Kleines Ritual', 'Großes Ritual', 'Dämonenritual'];
-    const demon = nr === 2 ? DEMON_BY_ID[run.circleDemon] : null;
+    const demon = nr === 2 ? demonById(run.circleDemon) : null;
     const el = q('next');
     el.innerHTML = `
       <div class="next-info">
         <div class="lbl">Als Nächstes</div>
         <div class="next-title">${demon ? `${demon.name} · ${demon.title}` : names[nr]}${nc !== run.circle ? ` · Kreis ${roman(nc)}` : ''}</div>
-        <div class="next-goal">Ziel: <b>${fmt(ritualTarget(run, nc, nr))}</b></div>
+        <div class="next-goal">Ziel: <b>${fmt(ritualTarget(run, nc, nr).mul(run.nextRitual?.targetMult ?? 1).floor())}</b>${run.nextRitual?.spinsAdd ? ` · <span class="bad">${run.nextRitual.spinsAdd} Drehung</span>` : ''}</div>
         ${demon ? `<div class="next-demon">${glyphSvg(demon.glyph)} ${demon.desc}</div>` : ''}
       </div>`;
     const go = h('button', { class: 'btn primary big', text: 'Ritual beginnen' });

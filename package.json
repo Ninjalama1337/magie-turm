@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "sim": "tsx tests/balance-sim.ts",
+    "report": "tsx tests/balance-report.ts",
     "e2e": "node e2e/smoke.mjs",
     "icons": "node scripts/make-icons.mjs",
     "cap:sync": "npm run build && npx cap sync android",

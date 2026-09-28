@@ -27,6 +27,33 @@ Mit **Asche** aus beendeten Runs und Erfolgen wächst im **Grimoire** ein **Tale
 - 6 Kessel, 5 Höllenstufen
 - 12 Omen, 21 Erfolge
 
+### Beschwörer
+Vor jedem Run wählst du, wer den Pakt schließt. Jeder Beschwörer hat ein eigenes Start-Siegel und eigene Vor- und Nachteile:
+
+| Beschwörer | Besonderheit | Freischaltung |
+|---|---|---|
+| Der Wanderer | Klassisch | von Beginn an |
+| Die Hexe | 2 Start-Tränke, +1 Trank-Platz, günstigere Tränke, −2 Seelen | 3 Runs |
+| Der Spieler | Knochenwürfel; Zahl ×27, Dutzend ×4, einfache Einsätze nur ×1,6 | Kreis 3 |
+| Der Geisterseher | Irrlichtsiegel, Start-Irrlicht, +2 Irrlicht-Limit, −2 Glut/Runde | Erkenntnis-Stufe 2 |
+| Die Blutgräfin | Blutsiegel, +2 Basis-Fluch, −1 Seele je Ritual | Kreis 5 |
+| Der Alchemist | Freies Neu-Würfeln, +1 Arkana- und Siegel-Angebot, nur 4 Arkana-Plätze | Luzifer besiegt |
+
+Herausforderungen nutzen immer den Wanderer.
+
+### Siegel-Synergien
+Jedes Siegel gehört zu einem **Element** (Flamme, Blut, Sturm, Geist, Gold, Arkan).
+- **Resonanz:** Liegt ein Siegel direkt neben einem Siegel desselben Elements, wirkt es eine Stufe stärker.
+- **Bünde:** Mehrere Siegel eines Elements auf freien Rauten schalten Boni frei, zum Beispiel 3× Flamme für +3 Glut pro Runde oder 5× Flamme für ×1,5 Glut am Drehende.
+
+### Begegnungen, Fusionen und Chronik
+- **Begegnungen:** In etwa 40 % der Basare wartet eine Begegnung mit einer Entscheidung, etwa der Blutaltar (eine Drehung weniger im nächsten Ritual, dafür dauerhaft mehr Fluch) oder die schwarze Katze (Münzwurf um Seelen). Es gibt 9 Begegnungen, in Herausforderungen keine.
+- **Arkana-Fusion:** Zwei passende Arkana auf Stufe 3 verschmelzen im Basar zu einer legendären Karte, zum Beispiel Sonne + Mond zur *Sonnenfinsternis*. Es gibt 6 Rezepte; sie stehen in den Kartendetails und im Kodex.
+- **Jenseits:** Ab Kreis 10 herrschen Doppeldämonen mit den Regeln zweier Dämonen. Wer sie besiegt, bekommt eine Jenseits-Trophäe: 5 Seelen und eine kostenlose Arkana-Aufwertung.
+- **Reliquienkammer** (im Grimoire): Seelenkugeln und Kesselmetalle als rein optische Kosmetik für Asche. Das **Sammelalbum** belohnt vollständige Sammlungen mit Asche und exklusiver Kosmetik.
+- **Musik:** Prozedurale Orgel mit Bass und Totenglocken. Je heißer die Drehung, desto mehr Arpeggio, Trommel und Chor kommen hinzu.
+- **Chronik:** Der Kodex zeigt die letzten 25 Runs mit Beschwörer, Deck und Todesursache sowie Gesamtstatistiken.
+
 ### Kessel & Höllenstufen
 | Kessel | Besonderheit |
 |---|---|
@@ -51,6 +78,8 @@ Täglich und wöchentlich gibt es einen festen Seed mit Kessel, Stufe und Omen, 
 ### Weitere Systeme
 - **Editionen:** Arkana erscheinen im Basar manchmal als Folie, Holo, Polychrom oder Negativ.
 - **Tränke:** Einmal-Effekte vor einer Drehung oder im Basar.
+- **Vibration:** Auf dem Handy vibriert das Gerät bei Treffern, Siegen und Rekorden. Das lässt sich in den Einstellungen abschalten.
+- **Spielstand-Export:** In den Einstellungen lässt sich der komplette Fortschritt als Code exportieren und auf einem anderen Gerät oder nach einer Neuinstallation wieder importieren.
 - **Bedienung:** Drag & Drop, Hover-Tooltips am Desktop, geführtes Tutorial, Einstellungen (Musik, Effekte, Wackeln, reduzierte Effekte).
 
 ## Entwicklung
@@ -59,7 +88,8 @@ Täglich und wöchentlich gibt es einen festen Seed mit Kessel, Stufe und Omen, 
 npm install
 npm run dev        # Dev-Server
 npm test           # Unit-Tests (Vitest)
-npm run sim        # Balance-Simulation, z. B. npm run sim -- runs=500 pool=starter bot=sim
+npm run sim        # Balance-Simulation, z. B. npm run sim -- runs=500 pool=starter bot=sim hero=hexe
+npm run report     # Balance-Dashboard (Markdown): Pools, Beschwörer, Höllenstufen, stärkste Arkana
 npm run build      # Typecheck + Produktions-Build nach dist/
 npm run e2e        # Playwright-Smoke-Test gegen den Build (Screenshots in e2e/shots/)
 npm run icons      # PWA- und Android-Icons/Splashscreens aus public/icon.svg erzeugen
@@ -89,8 +119,9 @@ Simulation und Darstellung sind strikt getrennt: `simulateSpin()` berechnet das 
 
 ## CI/CD
 
-Jeder Push und jeder PR durchläuft Typecheck, Unit-Tests, Balance-Simulation, Build und E2E. Danach baut ein zweiter Job die signierte **APK** als Artifact.
+Jeder Push und jeder PR durchläuft Typecheck, Unit-Tests, Balance-Dashboard (in der Job-Zusammenfassung), Build und E2E. Danach baut ein zweiter Job die signierte **APK** als Artifact.
 - **Jeder Push auf `main`** (also jeder gemergte PR) erstellt automatisch ein **GitHub Release** `v2.0.<Build-Nummer>` mit der signierten `teufelsrad.apk` und einem **Changelog**. Den Changelog erzeugt `scripts/changelog.mjs` aus den Commits seit dem letzten Release, gruppiert nach Präfix (`feat` → Neu, `fix` → Fehlerbehebungen, `perf`/`refactor`/`balance` → Balance, `ci`/`build`/`chore`/`docs`/`test` → Technik).
+- Jedes Release enthält zusätzlich den **Balance-Bericht** des Builds (aufklappbar).
 - **Tag `v*`** (z. B. `v2.1.0`): Das Release bekommt genau diese Version. Für einen Major- oder Minor-Sprung erhöhst du die Version in `package.json`. Die Build-Nummer hängt immer an `Major.Minor` aus `package.json`.
 - Die Versionsnummer landet in der App (`APP_VERSION`) und in der APK (`versionName`), damit das Update-Banner korrekt vergleicht. Die Zählung beginnt bei 2.x, weil es aus dem Vorgängerprojekt schon die Releases v1.0.0 und v1.1.0 gibt.
 - Das Repo bleibt privat, es wird nichts veröffentlicht. Die Web-Version läuft lokal über `npm run dev` bzw. `npm run preview`, die Android-App über die APK.

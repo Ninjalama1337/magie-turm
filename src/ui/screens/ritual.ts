@@ -1,6 +1,7 @@
 import Decimal from 'break_eternity.js';
 import { sfx } from '../../audio/sfx';
 import { STAKES } from '../../content/stakes';
+import { resonance } from '../../content/elements';
 import { fmt } from '../../core/num';
 import { circleName, finishRitual, ritualName, spin, withRng } from '../../core/run';
 import { moveArcana, usePotion } from '../../core/shop';
@@ -22,6 +23,7 @@ import {
   potionChip,
   potionDetail,
   sigilDetail,
+  bondsBar,
 } from '../components';
 import { h, restartAnim, roman, wait } from '../dom';
 import { makeDraggable } from '../drag';
@@ -101,6 +103,7 @@ export function renderRitual(app: App): () => void {
       </section>
       <div class="buffs" data-buffs></div>
       <section class="pacts-row" data-pacts></section>
+      <section data-bonds></section>
       <section class="stats-panel">
         <span class="lbl">${wheel.name}</span>
         <span class="t">Start-Tempo</span><b>${Math.round(stats.tempo * 10) / 10}</b>
@@ -154,7 +157,9 @@ export function renderRitual(app: App): () => void {
   view.wheel = wheel;
   view.sigils = run.sigils;
   view.unlocked = run.sigilUnlocked;
+  view.resonant = resonance(run);
   view.enchants = { ...run.enchants };
+  q('bonds').replaceWith(bondsBar(run));
   view.blockedSlot = demon?.mods.blockFirstSigil ? 0 : -1;
   view.shakeScale = app.meta.settings.shake ? 1 : 0;
 
@@ -163,7 +168,7 @@ export function renderRitual(app: App): () => void {
     if (e.pointerType !== 'mouse') return;
     const i = view.slotAt(e.clientX, e.clientY);
     const s = i >= 0 ? run.sigils[i] : null;
-    if (s) showTip(sigilDetail(s.id, s.level), e.clientX, e.clientY - 10);
+    if (s) showTip(sigilDetail(s.id, s.level, { resonant: view.resonant[i] }), e.clientX, e.clientY - 10);
     else if (i >= run.sigilUnlocked) showTip('<b>Versiegelte Raute</b><br>Im Basar freilegen.', e.clientX, e.clientY - 10);
     else hideTip();
   });

@@ -1,7 +1,9 @@
 import { ARCANA_BY_ID } from '../content/arcana';
-import { DEMON_BY_ID } from '../content/demons';
+import { demonById } from '../content/demons';
 import { OMEN_BY_ID } from '../content/omens';
 import { PACT_BY_ID } from '../content/pacts';
+import { applyBonds } from '../content/elements';
+import { heroOf } from '../content/heroes';
 import { applyStake } from '../content/stakes';
 import { fullMeta } from '../content/talents';
 import type { DemonDef, RunState, Stats } from './types';
@@ -28,6 +30,7 @@ export const BASE_STATS: Stats = {
   numberPay: 18,
   hellFluch: 1,
   endFluch: 1,
+  endGlut: 1,
   ritualBonus: 0,
   sellFull: false,
   upgradeDiscount: 0,
@@ -44,7 +47,7 @@ export const BASE_STATS: Stats = {
 };
 
 export function currentDemon(run: RunState): DemonDef | null {
-  return run.demon ? DEMON_BY_ID[run.demon] ?? null : null;
+  return demonById(run.demon);
 }
 
 export function computeStats(run: RunState, withDemon = true): Stats {
@@ -65,6 +68,14 @@ export function computeStats(run: RunState, withDemon = true): Stats {
   s.ghostCap += m.ghostCap;
   s.startGhosts += m.startGhosts;
   s.luck *= m.luck;
+  heroOf(run).mod?.(s);
+  const bo = run.boons;
+  if (bo) {
+    s.baseFluch += bo.baseFluch ?? 0;
+    s.lapGlut += bo.lapGlut ?? 0;
+    s.ghostCap += bo.ghostCap ?? 0;
+    s.luck *= bo.luck ?? 1;
+  }
   wheelOf(run).mod?.(s);
   applyStake(s, run.stake ?? 1);
   for (const id of run.omens ?? []) OMEN_BY_ID[id]?.mod?.(s);
@@ -73,6 +84,7 @@ export function computeStats(run: RunState, withDemon = true): Stats {
     ARCANA_BY_ID[a.id]?.mod?.(s, a);
     if (a.edition === 'negativ') s.arcanaSlots += 1;
   }
+  applyBonds(s, run);
   const d = withDemon ? currentDemon(run) : null;
   if (d) {
     s.friction += d.mods.frictionAdd ?? 0;
